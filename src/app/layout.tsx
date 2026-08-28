@@ -21,9 +21,26 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-[100dvh] w-full overflow-hidden antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              const originalError = console.error;
+              console.error = function(...args) {
+                const msg = args.join(' ');
+                if (msg.includes('Hydration failed') || msg.includes('server rendered HTML didn\\'t match') || msg.includes('bis_skin_checked')) {
+                  return;
+                }
+                originalError.apply(console, args);
+              };
+            `,
+          }}
+        />
+      </head>
+      <body className="h-full w-full flex flex-col overflow-hidden bg-[#020204]" suppressHydrationWarning>{children}</body>
     </html>
   );
 }

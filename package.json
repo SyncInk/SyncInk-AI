@@ -10,8 +10,10 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.56",
+    "@ai-sdk/react": "^4.0.86",
     "@tailwindcss/typography": "^0.5.20",
     "ai": "^7.0.83",
+    "dotenv": "^17.4.2",
     "lucide-react": "^1.35.0",
     "next": "16.3.3",
     "react": "19.2.8",
