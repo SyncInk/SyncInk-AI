@@ -672,34 +672,7 @@ function MainChatApp() {
     setIsSettingsOpen(false);
   };
 
-  const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
-  const isClerkAvailable = clerkKey.startsWith('pk_test_') || clerkKey.startsWith('pk_live_');
 
-  if (!isClerkAvailable) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
-        <div className="max-w-md w-full bg-surface/90 border border-red-500/30 shadow-2xl rounded-3xl p-8 text-center backdrop-blur-2xl">
-          <div className="w-16 h-16 mx-auto mb-6 bg-red-500/10 rounded-2xl flex items-center justify-center">
-            <Lock className="w-8 h-8 text-red-400" />
-          </div>
-          <h2 className="text-2xl font-bold tracking-tight mb-3">Login System Pending</h2>
-          <p className="text-sm text-muted mb-6 leading-relaxed">
-            The application is securely locked, but the Clerk Authentication keys are missing from your Vercel deployment.
-          </p>
-          <div className="text-left text-xs bg-black/20 p-4 rounded-xl border border-white/5 space-y-2 mb-6">
-            <p className="font-semibold text-white">Action Required:</p>
-            <ol className="list-decimal pl-4 text-muted space-y-1">
-              <li>Open your Vercel Dashboard</li>
-              <li>Go to Settings → Environment Variables</li>
-              <li>Add <code>NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code></li>
-              <li>Add <code>CLERK_SECRET_KEY</code></li>
-              <li>Redeploy the application</li>
-            </ol>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <>

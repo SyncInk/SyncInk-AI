@@ -25,8 +25,7 @@ import {
 } from 'lucide-react';
 import { ClerkErrorBoundary } from './ClerkErrorBoundary';
 
-const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
-const isClerkAvailable = clerkKey.startsWith('pk_test_') || clerkKey.startsWith('pk_live_');
+
 
 interface AuthProps {
   onOpenSettings?: () => void;
@@ -85,44 +84,40 @@ export function SidebarUserTile({ onOpenSettings }: AuthProps) {
     </button>
   );
 
-  if (isClerkAvailable) {
-    return (
-      <ClerkErrorBoundary fallback={fallbackTile}>
-        <div className="flex items-center space-x-3 p-2 rounded-xl bg-surface/50 border border-border">
-          <SignedIn>
-            <UserButton 
-              appearance={{
-                elements: {
-                  avatarBox: 'w-7 h-7 rounded-lg shadow-sm',
-                  userButtonPopoverCard: 'bg-surface border border-border shadow-2xl rounded-2xl',
-                }
-              }}
-            />
-            <SidebarClerkUserInfo onOpenSettings={onOpenSettings} />
-          </SignedIn>
+  return (
+    <ClerkErrorBoundary fallback={fallbackTile}>
+      <div className="flex items-center space-x-3 p-2 rounded-xl bg-surface/50 border border-border">
+        <SignedIn>
+          <UserButton 
+            appearance={{
+              elements: {
+                avatarBox: 'w-7 h-7 rounded-lg shadow-sm',
+                userButtonPopoverCard: 'bg-surface border border-border shadow-2xl rounded-2xl',
+              }
+            }}
+          />
+          <SidebarClerkUserInfo onOpenSettings={onOpenSettings} />
+        </SignedIn>
 
-          <SignedOut>
-            <SignInButton mode="modal">
-              <button className="w-full flex items-center justify-between py-1 text-foreground cursor-pointer group">
-                <div className="flex items-center space-x-2.5">
-                  <div className="p-1.5 rounded-lg bg-indigo-600 text-white group-hover:scale-105 transition-transform">
-                    <LogIn className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-xs font-semibold">Sign In</p>
-                    <p className="text-[10px] text-muted">Clerk Real Auth</p>
-                  </div>
+        <SignedOut>
+          <SignInButton mode="modal">
+            <button className="w-full flex items-center justify-between py-1 text-foreground cursor-pointer group">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-1.5 rounded-lg bg-indigo-600 text-white group-hover:scale-105 transition-transform">
+                  <LogIn className="w-3.5 h-3.5" />
                 </div>
-                <ChevronRight className="w-3.5 h-3.5 text-muted group-hover:translate-x-0.5 transition-transform" />
-              </button>
-            </SignInButton>
-          </SignedOut>
-        </div>
-      </ClerkErrorBoundary>
-    );
-  }
-
-  return fallbackTile;
+                <div className="text-left">
+                  <p className="text-xs font-semibold">Sign In</p>
+                  <p className="text-[10px] text-muted">Clerk Real Auth</p>
+                </div>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-muted group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          </SignInButton>
+        </SignedOut>
+      </div>
+    </ClerkErrorBoundary>
+  );
 }
 
 // User Info in Sidebar when using Clerk
