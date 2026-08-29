@@ -7,17 +7,18 @@ import { SignedIn, SignedOut, SignIn } from '@clerk/nextjs';
 import { DefaultChatTransport } from 'ai';
 
 class RootErrorBoundary extends Component<{children: ReactNode}, {error: Error | null}> {
-  state = { error: null };
+  state: {error: Error | null} = { error: null };
   static getDerivedStateFromError(error: Error) { return { error }; }
   componentDidCatch(error: Error, info: ErrorInfo) { console.error("Caught by RootErrorBoundary:", error, info); }
   render() {
     if (this.state.error) {
+      const err = this.state.error as Error;
       return (
         <div className="flex flex-col items-center justify-center h-screen w-full bg-red-950 text-white p-8">
           <h1 className="text-3xl font-bold mb-4">CRITICAL CRASH</h1>
           <pre className="bg-black/50 p-6 rounded-xl overflow-auto w-full max-w-4xl text-xs text-red-200 whitespace-pre-wrap">
-            {this.state.error?.message}{'\n\n'}
-            {this.state.error?.stack}
+            {err.message}{'\n\n'}
+            {err.stack}
           </pre>
         </div>
       );
