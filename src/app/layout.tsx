@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import { ClerkErrorBoundary } from "@/components/ClerkErrorBoundary";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -29,9 +30,11 @@ export default function RootLayout({
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
   const content = publishableKey ? (
-    <ClerkProvider publishableKey={publishableKey}>
-      {children}
-    </ClerkProvider>
+    <ClerkErrorBoundary fallback={children}>
+      <ClerkProvider publishableKey={publishableKey}>
+        {children}
+      </ClerkProvider>
+    </ClerkErrorBoundary>
   ) : (
     children
   );
