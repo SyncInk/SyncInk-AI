@@ -411,10 +411,8 @@ function MainChatApp() {
         {/* Sidebar Brand Header */}
         <div className="p-4 pt-5 pb-3 flex items-center justify-between border-b border-border/50">
           <div className="flex items-center space-x-3">
-            <div className="relative w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 p-[1px] shadow-lg shadow-indigo-500/20 flex items-center justify-center">
-              <div className="w-full h-full bg-[#090b12] rounded-[11px] flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-indigo-400" />
-              </div>
+            <div className="relative w-8 h-8 rounded-xl overflow-hidden shadow-lg shadow-indigo-500/20 flex-shrink-0 border border-white/10">
+              <img src="/logo.png" alt="SyncInk Logo" className="w-full h-full object-cover" />
             </div>
             <div className="flex flex-col">
               <span className="font-semibold text-foreground text-base tracking-tight flex items-center space-x-1.5">
@@ -549,7 +547,8 @@ function MainChatApp() {
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2.5">
+              <img src="/logo.png" alt="SyncInk Logo" className="w-5 h-5 rounded-md object-cover shadow-sm" />
               <span className="font-semibold text-sm text-foreground">SyncInk Intelligence</span>
               <div className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -580,9 +579,9 @@ function MainChatApp() {
               <div className="flex flex-col items-center justify-center min-h-[60vh] text-center pt-8 animate-in fade-in duration-700">
                 {/* Glowing SyncInk Emblem */}
                 <div className="relative mb-6">
-                  <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/30 to-violet-500/30 rounded-3xl blur-2xl animate-pulse-subtle -z-10" />
-                  <div className="w-20 h-20 rounded-3xl bg-surface/90 dark:bg-white/[0.04] border border-border shadow-2xl backdrop-blur-2xl flex items-center justify-center">
-                    <Sparkles className="w-10 h-10 text-indigo-500 dark:text-indigo-400" />
+                  <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/40 to-violet-500/40 rounded-3xl blur-2xl animate-pulse-subtle -z-10" />
+                  <div className="w-20 h-20 rounded-3xl bg-surface/90 dark:bg-white/[0.04] border border-border shadow-2xl backdrop-blur-2xl p-2 flex items-center justify-center overflow-hidden">
+                    <img src="/logo.png" alt="SyncInk Logo" className="w-full h-full object-cover rounded-2xl" />
                   </div>
                 </div>
 
@@ -680,8 +679,8 @@ function MainChatApp() {
                     >
                       {/* Avatar */}
                       {!isUser && (
-                        <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex-shrink-0 flex items-center justify-center text-white shadow-sm mt-1">
-                          <Bot className="w-4 h-4" />
+                        <div className="w-7 h-7 rounded-xl overflow-hidden shadow-sm flex-shrink-0 mt-1 border border-border/60">
+                          <img src="/logo.png" alt="SyncInk AI" className="w-full h-full object-cover" />
                         </div>
                       )}
 
@@ -769,8 +768,8 @@ function MainChatApp() {
             {/* AI Streaming Indicator */}
             {isGenerating && (
               <div className="flex items-center space-x-3 text-muted text-xs animate-in fade-in duration-300 pl-2">
-                <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-sm">
-                  <Bot className="w-4 h-4 animate-spin" />
+                <div className="w-7 h-7 rounded-xl overflow-hidden shadow-sm flex-shrink-0 border border-border/60 animate-pulse">
+                  <img src="/logo.png" alt="SyncInk AI" className="w-full h-full object-cover" />
                 </div>
                 <div className="flex items-center space-x-1.5 py-2 px-3 rounded-full bg-surface border border-border">
                   <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
