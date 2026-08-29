@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  SignedIn, 
-  SignedOut, 
+  Show, 
   SignInButton, 
   UserButton, 
   useUser 
@@ -51,7 +50,7 @@ export function SidebarUserTile({ onOpenSettings }: AuthProps) {
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
-  const fallbackTile = localUser ? (
+  const fallbackTile = localUser?.name ? (
     <div
       onClick={onOpenSettings}
       className="flex items-center space-x-3 p-2 rounded-xl hover:bg-surface-hover cursor-pointer transition-colors border border-transparent hover:border-border"
@@ -87,7 +86,7 @@ export function SidebarUserTile({ onOpenSettings }: AuthProps) {
   return (
     <ClerkErrorBoundary fallback={fallbackTile}>
       <div className="flex items-center space-x-3 p-2 rounded-xl bg-surface/50 border border-border">
-        <SignedIn>
+        <Show when="signed-in">
           <UserButton 
             appearance={{
               elements: {
@@ -97,9 +96,9 @@ export function SidebarUserTile({ onOpenSettings }: AuthProps) {
             }}
           />
           <SidebarClerkUserInfo onOpenSettings={onOpenSettings} />
-        </SignedIn>
+        </Show>
 
-        <SignedOut>
+        <Show when="signed-out">
           <SignInButton mode="modal">
             <button className="w-full flex items-center justify-between py-1 text-foreground cursor-pointer group">
               <div className="flex items-center space-x-2.5">
@@ -114,7 +113,7 @@ export function SidebarUserTile({ onOpenSettings }: AuthProps) {
               <ChevronRight className="w-3.5 h-3.5 text-muted group-hover:translate-x-0.5 transition-transform" />
             </button>
           </SignInButton>
-        </SignedOut>
+        </Show>
       </div>
     </ClerkErrorBoundary>
   );
@@ -133,14 +132,12 @@ function SidebarClerkUserInfo({ onOpenSettings }: AuthProps) {
       <p className="text-xs font-semibold text-foreground truncate">
         {user.fullName || user.primaryEmailAddress?.emailAddress?.split('@')[0] || 'SyncInk User'}
       </p>
-      <p className="text-[10px] text-muted truncate">
-        {user.primaryEmailAddress?.emailAddress || 'SyncInk Pro'}
-      </p>
+      <p className="text-[10px] text-muted truncate">SyncInk Pro · Active</p>
     </div>
   );
 }
 
-// Top Bar Auth Button
+// Optional Auth Button for Top Bar
 export function TopBarAuthButton() {
   const [localUser, setLocalUser] = useState<any>(null);
 
@@ -174,7 +171,7 @@ export function TopBarAuthButton() {
 
   return (
     <ClerkErrorBoundary fallback={fallbackButton}>
-      <SignedIn>
+      <Show when="signed-in">
         <div className="flex items-center space-x-2">
           <UserButton 
             appearance={{
@@ -184,15 +181,15 @@ export function TopBarAuthButton() {
             }}
           />
         </div>
-      </SignedIn>
-      <SignedOut>
+      </Show>
+      <Show when="signed-out">
         <SignInButton mode="modal">
           <button className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shadow-sm cursor-pointer hover:scale-105 active:scale-95">
             <LogIn className="w-3.5 h-3.5" />
             <span>Sign In</span>
           </button>
         </SignInButton>
-      </SignedOut>
+      </Show>
     </ClerkErrorBoundary>
   );
 }

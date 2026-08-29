@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import React, { useState, useEffect, useRef, useCallback, Component, ErrorInfo, ReactNode } from 'react';
 import { useChat } from '@ai-sdk/react';
-import { SignedIn, SignedOut, SignIn } from '@clerk/nextjs';
+import { Show, SignIn } from '@clerk/nextjs';
 import { DefaultChatTransport } from 'ai';
 
 class RootErrorBoundary extends Component<{children: ReactNode}, {error: Error | null}> {
@@ -693,11 +693,16 @@ function MainChatApp() {
     setIsSettingsOpen(false);
   };
 
-
-
   return (
     <RootErrorBoundary>
-      <SignedIn>
+      <Show 
+        when="signed-in"
+        fallback={
+          <div className="flex h-screen w-full items-center justify-center bg-background">
+            <SignIn />
+          </div>
+        }
+      >
         <div className="flex h-full w-full bg-background text-foreground overflow-hidden relative selection:bg-indigo-500/25">
           {/* Background Ambient Glow Orbs */}
           <div className="absolute top-[-15%] left-[-10%] w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] rounded-full bg-indigo-600/10 dark:bg-indigo-600/15 blur-[140px] pointer-events-none -z-10 mix-blend-screen" />
@@ -1539,12 +1544,7 @@ function MainChatApp() {
       )}
 
         </div>
-      </SignedIn>
-      <SignedOut>
-        <div className="flex h-screen w-full items-center justify-center bg-background">
-          <SignIn />
-        </div>
-      </SignedOut>
+      </Show>
     </RootErrorBoundary>
   );
 }
