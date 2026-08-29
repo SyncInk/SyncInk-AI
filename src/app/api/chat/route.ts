@@ -1,54 +1,98 @@
-import { google } from '@ai-sdk/google';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { streamText } from 'ai';
-import { db } from '@/lib/db';
-import { getSessionUser } from '@/lib/auth';
 
-// Allow streaming responses up to 30 seconds
-export const maxDuration = 30;
+export const maxDuration = 60;
+
+const apiKey = 
+  process.env.GOOGLE_GENERATIVE_AI_API_KEY || 
+  process.env.GEMINI_API_KEY || 
+  process.env.GOOGLE_API_KEY || 
+  '';
+
+const google = createGoogleGenerativeAI({
+  apiKey,
+});
 
 export async function POST(req: Request) {
   try {
-    const userId = await getSessionUser();
-    const body = await req.json();
-    
-    const url = new URL(req.url);
-    const conversationId = url.searchParams.get('conversationId') || body.conversationId;
-    const messages = body.messages || [];
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Missing Google Generative AI API Key. Please add GOOGLE_GENERATIVE_AI_API_KEY or GEMINI_API_KEY in your Vercel Environment Variables.' 
+        }), 
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
 
-    const coreMessages = messages.map((m: any) => {
-      let content = m.content;
-      if (!content && m.parts) {
-        if (m.role === 'user') {
-          content = m.parts;
-        } else {
-          content = m.parts.find((p:any) => p.type === 'text')?.text || '';
-        }
+    const body = await req.json();
+    const rawMessages = body.messages || [];
+
+    // Parse and normalize messages for AI SDK
+    const coreMessages = rawMessages.map((m: any) => {
+      // Direct string content
+      if (typeof m.content === 'string' && m.content.trim()) {
+        return { role: m.role, content: m.content };
       }
-      return { role: m.role, content: content || '' };
+
+      // Multipart content (text + images/files)
+      if (Array.isArray(m.parts) && m.parts.length > 0) {
+        const textParts = m.parts
+          .filter((p: any) => p.type === 'text' && typeof p.text === 'string')
+          .map((p: any) => p.text)
+          .join('\n');
+
+        const imageParts = m.parts
+          .filter((p: any) => p.type === 'image' && p.image)
+          .map((p: any) => ({
+            type: 'image' as const,
+            image: p.image,
+          }));
+
+        if (imageParts.length > 0) {
+          const contentArray: any[] = [];
+          if (textParts) contentArray.push({ type: 'text', text: textParts });
+          contentArray.push(...imageParts);
+          return { role: m.role, content: contentArray };
+        }
+
+        return { role: m.role, content: textParts || '' };
+      }
+
+      return { role: m.role, content: '' };
+    }).filter((m: any) => {
+      if (typeof m.content === 'string') return m.content.length > 0;
+      if (Array.isArray(m.content)) return m.content.length > 0;
+      return false;
     });
 
-    const currentTime = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata', dateStyle: 'full', timeStyle: 'long' });
+    const currentTime = new Date().toLocaleString('en-US', {
+      timeZone: 'Asia/Kolkata',
+      dateStyle: 'full',
+      timeStyle: 'long',
+    });
+
+    const systemPrompt = `You are SyncInk AI, an ultra-fast, premium next-generation AI assistant built by SyncInk.
+Current Real-Time Date and Time: ${currentTime}.
+
+Your Core Directives:
+1. Provide accurate, clear, and elegant responses.
+2. Get straight to the point without excessive throat-clearing, disclaimers, or filler phrases.
+3. Format output cleanly with standard GitHub Flavored Markdown (bullet points, numbered lists, tables, bold headers, and code blocks with language tags).
+4. You are aware of modern 2026 events and topics. Be helpful, friendly, thoughtful, and highly capable.
+5. If answering code or technical questions, provide working, modern, clean code with brief explanations.`;
 
     const result = streamText({
-      // @ts-ignore - useSearchGrounding is supported by the provider but not in these types
-      model: google('gemini-1.5-flash', { useSearchGrounding: true }),
-      system: `You are SyncInk AI, a highly capable and helpful AI assistant created by SyncInk.
-
-The current real-time date and time is: ${currentTime}.
-
-**CRITICAL INSTRUCTION**: You HAVE real-time internet access via Google Search Grounding. If the user asks about recent events (like 2026 news, leaks, weather), rely on your grounded data to answer them accurately. NEVER say you don't have internet access.
-
-Your goal is to provide clear, direct, and easy-to-understand answers.
-- Answer directly and get straight to the point without unnecessary build-up.
-- Keep your language simple, natural, and accessible.
-- Format your responses cleanly using markdown, bullet points, and bold text for readability.
-- Be extremely helpful, friendly, and precise.`,
+      model: google('gemini-3.6-flash'),
+      system: systemPrompt,
       messages: coreMessages,
     });
 
     return result.toUIMessageStreamResponse();
   } catch (error: any) {
-    console.error('API Error:', error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    console.error('SyncInk AI Route Error:', error);
+    return new Response(
+      JSON.stringify({ error: error.message || 'An error occurred while generating response.' }), 
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 }

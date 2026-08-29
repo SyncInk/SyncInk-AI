@@ -1,556 +1,1003 @@
 'use client';
 
+import dynamic from 'next/dynamic';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import ReactMarkdown from 'react-markdown';
-import { 
-  Send, Bot, User, Paperclip, X, Menu, Plus, MessageSquare, 
-  Settings, Mic, Sparkles, FileText, LayoutGrid, Zap, Trash2, Edit2
+import {
+  Send,
+  Square,
+  Sparkles,
+  Paperclip,
+  Mic,
+  MicOff,
+  Plus,
+  Trash2,
+  Copy,
+  Check,
+  RotateCcw,
+  Sun,
+  Moon,
+  Settings,
+  X,
+  Menu,
+  ChevronRight,
+  Code2,
+  FileText,
+  Lightbulb,
+  Zap,
+  Bot,
+  User,
+  ShieldCheck,
+  AlertCircle,
+  ExternalLink,
 } from 'lucide-react';
-import { useRef, useEffect, useState, useCallback } from 'react';
 
-// Basic Speech Recognition wrapper
-const useSpeechRecognition = (onResult: (text: string) => void) => {
+// Speech recognition wrapper
+function useSpeechToText(onTranscript: (text: string) => void) {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
-      
-      recognitionRef.current.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        onResult(transcript);
-      };
-      
-      recognitionRef.current.onend = () => setIsListening(false);
-      recognitionRef.current.onerror = () => setIsListening(false);
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition =
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        recognition.onresult = (event: any) => {
+          const text = event.results[0][0].transcript;
+          if (text) onTranscript(text);
+          setIsListening(false);
+        };
+
+        recognition.onerror = () => setIsListening(false);
+        recognition.onend = () => setIsListening(false);
+
+        recognitionRef.current = recognition;
+      }
     }
-  }, [onResult]);
+  }, [onTranscript]);
 
   const toggle = () => {
+    if (!recognitionRef.current) {
+      alert('Speech recognition is not supported in this browser.');
+      return;
+    }
     if (isListening) {
-      recognitionRef.current?.stop();
+      recognitionRef.current.stop();
       setIsListening(false);
     } else {
-      if (!recognitionRef.current) {
-        alert("Voice input is not supported in this browser.");
-        return;
-      }
       recognitionRef.current.start();
       setIsListening(true);
     }
   };
 
   return { isListening, toggle };
-};
+}
 
-import dynamic from 'next/dynamic';
+// Code Block with Copy Button
+function CodeBlock({ children, className }: { children: React.ReactNode; className?: string }) {
+  const [copied, setCopied] = useState(false);
+  const language = className ? className.replace(/language-/, '') : 'code';
+  const codeString = String(children).replace(/\n$/, '');
 
-function ChatApp() {
-  const [conversationId, setConversationId] = useState('');
-  const [history, setHistory] = useState<any[]>([]);
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(codeString);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="relative my-4 rounded-xl overflow-hidden border border-border bg-[#0a0c14] text-gray-100 shadow-xl">
+      <div className="flex items-center justify-between px-4 py-2 bg-white/[0.04] border-b border-border text-xs text-muted">
+        <span className="font-mono uppercase tracking-wider text-[11px] text-indigo-400">
+          {language}
+        </span>
+        <button
+          onClick={copyToClipboard}
+          className="flex items-center space-x-1 hover:text-white transition-colors px-2 py-1 rounded hover:bg-white/10"
+          title="Copy code"
+        >
+          {copied ? (
+            <>
+              <Check className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-emerald-400 text-[11px]">Copied</span>
+            </>
+          ) : (
+            <>
+              <Copy className="w-3.5 h-3.5" />
+              <span className="text-[11px]">Copy</span>
+            </>
+          )}
+        </button>
+      </div>
+      <div className="p-4 overflow-x-auto text-sm font-mono leading-relaxed">
+        <pre className="!bg-transparent !p-0 !m-0">
+          <code>{children}</code>
+        </pre>
+      </div>
+    </div>
+  );
+}
+
+interface ConversationItem {
+  id: string;
+  title: string;
+  updatedAt: number;
+  messages: any[];
+}
+
+function MainChatApp() {
+  const [conversationId, setConversationId] = useState<string>('');
+  const [history, setHistory] = useState<ConversationItem[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
-  const [input, setInput] = useState('');
-  const [attachments, setAttachments] = useState<File[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('gemini-3.5-flash');
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [inputPrompt, setInputPrompt] = useState('');
+  const [attachments, setAttachments] = useState<Array<{ name: string; type: string; data: string }>>([]);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
-  const { messages, setMessages, sendMessage, status, error } = useChat({
-    id: conversationId,
-    transport: typeof window !== 'undefined' ? new DefaultChatTransport({
-      api: `/api/chat?conversationId=${conversationId}`
-    }) : undefined,
-    onFinish: () => {
-      fetchHistory(); // refresh history for updated titles
-    }
-  } as any);
-
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { isListening, toggle: toggleMic } = useSpeechRecognition((text) => {
-    setInput((prev) => prev ? `${prev} ${text}` : text);
-  });
-
-  const fetchHistory = useCallback(() => {
+  // Initialize theme
+  useEffect(() => {
     try {
-      const stored = localStorage.getItem('syncink_history');
-      if (stored) {
-        setHistory(JSON.parse(stored).sort((a:any, b:any) => b.updatedAt - a.updatedAt));
+      const savedTheme = localStorage.getItem('syncink_theme') as 'dark' | 'light' | null;
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const initialTheme = savedTheme || (prefersDark ? 'dark' : 'light');
+      setTheme(initialTheme);
+      if (initialTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+        document.documentElement.setAttribute('data-theme', 'dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.setAttribute('data-theme', 'light');
       }
     } catch (e) {
       console.error(e);
     }
   }, []);
 
-  // Save messages to local storage whenever they change
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    localStorage.setItem('syncink_theme', nextTheme);
+    if (nextTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  };
+
+  // AI SDK useChat
+  const { messages, setMessages, sendMessage, status, error, stop, clearError } = useChat({
+    id: conversationId,
+    transport:
+      typeof window !== 'undefined'
+        ? new DefaultChatTransport({
+            api: `/api/chat?conversationId=${conversationId}`,
+          })
+        : undefined,
+  } as any);
+
+  const isGenerating = status === 'submitted' || status === 'streaming';
+
+  // Speech to text
+  const { isListening, toggle: toggleSpeech } = useSpeechToText((text) => {
+    setInputPrompt((prev) => (prev ? `${prev} ${text}` : text));
+  });
+
+  // Load history from localStorage
+  const loadHistoryFromStorage = useCallback(() => {
+    try {
+      const raw = localStorage.getItem('syncink_conversations');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setHistory(parsed.sort((a, b) => b.updatedAt - a.updatedAt));
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load history:', e);
+    }
+  }, []);
+
+  // Save messages to history
   useEffect(() => {
     if (messages.length > 0 && conversationId) {
       try {
-        const stored = localStorage.getItem('syncink_history');
-        let hist = stored ? JSON.parse(stored) : [];
-        let convIndex = hist.findIndex((c:any) => c.id === conversationId);
-        
-        let title = "New Conversation";
-        if (convIndex >= 0 && hist[convIndex].title && hist[convIndex].title !== "New Conversation") {
-          title = hist[convIndex].title;
-        } else if ((messages[0] as any)?.content) {
-          const content = (messages[0] as any).content;
-          title = content.substring(0, 40) + (content.length > 40 ? '...' : '');
-        } else if (messages[0]?.parts) {
-          const textPart = messages[0].parts.find((p:any) => p.type === 'text');
-          const text = (textPart as any)?.text || 'Chat';
-          title = text.substring(0, 40) + (text.length > 40 ? '...' : '');
+        const raw = localStorage.getItem('syncink_conversations');
+        let list: ConversationItem[] = raw ? JSON.parse(raw) : [];
+
+        let firstUserText = 'New Conversation';
+        for (const rawM of messages) {
+          const m = rawM as any;
+          if (m.role === 'user') {
+            if (typeof m.content === 'string' && m.content.trim()) {
+              firstUserText = m.content.trim();
+              break;
+            }
+            if (Array.isArray(m.parts)) {
+              const txt = m.parts.find((p: any) => p.type === 'text')?.text;
+              if (txt) {
+                firstUserText = String(txt).trim();
+                break;
+              }
+            }
+          }
         }
 
-        const convObj = {
+        const title =
+          firstUserText.length > 38 ? firstUserText.substring(0, 38) + '...' : firstUserText;
+
+        const idx = list.findIndex((c) => c.id === conversationId);
+        const item: ConversationItem = {
           id: conversationId,
-          title,
+          title: idx >= 0 && list[idx].title !== 'New Conversation' ? list[idx].title : title,
           updatedAt: Date.now(),
-          messages: messages
+          messages: messages,
         };
 
-        if (convIndex >= 0) {
-          hist[convIndex] = convObj;
+        if (idx >= 0) {
+          list[idx] = item;
         } else {
-          hist.unshift(convObj);
+          list.unshift(item);
         }
-        
-        localStorage.setItem('syncink_history', JSON.stringify(hist));
-        setHistory(hist.sort((a:any, b:any) => b.updatedAt - a.updatedAt));
+
+        localStorage.setItem('syncink_conversations', JSON.stringify(list));
+        setHistory([...list]);
       } catch (e) {
-        console.error(e);
+        console.error('Failed to save conversation:', e);
       }
     }
   }, [messages, conversationId]);
 
-  // Initialize
+  // Initial load
   useEffect(() => {
-    setIsMounted(true);
-    fetchHistory();
-    // Default to a new ID if none
-    if (!conversationId) setConversationId(crypto.randomUUID());
-  }, []);
+    loadHistoryFromStorage();
+    const newId = crypto.randomUUID();
+    setConversationId(newId);
+  }, [loadHistoryFromStorage]);
 
+  // Auto scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, status]);
 
-  const loadConversation = (id: string) => {
-    try {
-      setConversationId(id);
-      const stored = localStorage.getItem('syncink_history');
-      if (stored) {
-        const hist = JSON.parse(stored);
-        const conv = hist.find((c:any) => c.id === id);
-        if (conv) {
-          setMessages(conv.messages || []);
-        } else {
-          setMessages([]);
-        }
-      }
-      if (window.innerWidth < 768) setIsSidebarOpen(false);
-    } catch (e) {
-      console.error(e);
+  // Auto resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 180)}px`;
     }
-  };
+  }, [inputPrompt]);
 
-  const startNewChat = () => {
+  const handleStartNewChat = () => {
     setConversationId(crypto.randomUUID());
     setMessages([]);
-    setInput('');
+    setInputPrompt('');
     setAttachments([]);
+    clearError?.();
     if (window.innerWidth < 768) setIsSidebarOpen(false);
   };
 
-  const deleteConversation = (e: React.MouseEvent, id: string) => {
+  const handleSelectConversation = (conv: ConversationItem) => {
+    setConversationId(conv.id);
+    setMessages(conv.messages || []);
+    setInputPrompt('');
+    setAttachments([]);
+    clearError?.();
+    if (window.innerWidth < 768) setIsSidebarOpen(false);
+  };
+
+  const handleDeleteConversation = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (!confirm('Are you sure you want to delete this conversation?')) return;
+    if (!confirm('Are you sure you want to delete this chat?')) return;
     try {
-      const stored = localStorage.getItem('syncink_history');
-      if (stored) {
-        let hist = JSON.parse(stored);
-        hist = hist.filter((c:any) => c.id !== id);
-        localStorage.setItem('syncink_history', JSON.stringify(hist));
-        setHistory(hist);
+      const updated = history.filter((c) => c.id !== id);
+      localStorage.setItem('syncink_conversations', JSON.stringify(updated));
+      setHistory(updated);
+      if (conversationId === id) {
+        handleStartNewChat();
       }
-      if (conversationId === id) startNewChat();
     } catch (e) {
       console.error(e);
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
+  const handleClearAllHistory = () => {
+    if (!confirm('Delete all conversation history? This cannot be undone.')) return;
+    try {
+      localStorage.removeItem('syncink_conversations');
+      setHistory([]);
+      handleStartNewChat();
+      setIsSettingsOpen(false);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setAttachments((prev) => [...prev, ...Array.from(e.target.files!)]);
+  // Handle file uploads
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const data = event.target?.result as string;
+        setAttachments((prev) => [...prev, { name: file.name, type: file.type, data }]);
+      };
+      reader.readAsDataURL(file);
     }
+    e.target.value = '';
   };
 
   const removeAttachment = (index: number) => {
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const isProcessing = status === 'submitted' || status === 'streaming';
+  // Submit message
+  const handleSendMessage = async (textToSend?: string) => {
+    const query = (textToSend || inputPrompt).trim();
+    if ((!query && attachments.length === 0) || isGenerating) return;
 
-  const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
-    if (e) e.preventDefault();
-    if (!input.trim() && attachments.length === 0) return;
-    if (isProcessing) return;
-    
-    const parts: any[] = [];
-    if (input.trim()) parts.push({ type: 'text', text: input });
+    clearError?.();
 
-    for (const file of attachments) {
-      const reader = new FileReader();
-      const dataUrl = await new Promise<string>((resolve) => {
-        reader.onload = (e) => resolve(e.target?.result as string);
-        reader.readAsDataURL(file);
+    if (attachments.length > 0) {
+      const parts: any[] = [];
+      if (query) parts.push({ type: 'text', text: query });
+      attachments.forEach((att) => {
+        if (att.type.startsWith('image/')) {
+          parts.push({ type: 'image', image: att.data });
+        } else {
+          parts.push({ type: 'text', text: `[Attached Document: ${att.name}]` });
+        }
       });
-      if (file.type.startsWith('image/')) {
-        parts.push({ type: 'image', image: dataUrl });
-      } else {
-        parts.push({ type: 'file', data: dataUrl, mimeType: file.type });
-      }
+      sendMessage({ text: query, parts } as any);
+    } else {
+      sendMessage({ text: query });
     }
-    
-    // Pass parts directly to support attachments
-    sendMessage({ role: 'user', parts } as any);
-    setInput('');
+
+    setInputPrompt('');
     setAttachments([]);
-    
-    // Ensure history updates if it's a new chat
-    if (messages.length === 0) {
-      setTimeout(fetchHistory, 1500);
-    }
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
   };
 
-  if (!isMounted) return <div className="h-[100dvh] w-full bg-background" />;
+  const copyMessageContent = (id: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedMessageId(id);
+    setTimeout(() => setCopiedMessageId(null), 2000);
+  };
 
   return (
-    <div className="h-[100dvh] w-full flex bg-background text-foreground font-sans selection:bg-indigo-500/30 overflow-hidden relative" suppressHydrationWarning>
-      
-      {/* Background Ambient Lighting */}
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/10 rounded-full blur-[150px] pointer-events-none mix-blend-screen"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[150px] pointer-events-none mix-blend-screen"></div>
+    <div className="flex h-[100dvh] w-full bg-background text-foreground overflow-hidden relative selection:bg-indigo-500/25">
+      {/* Background Ambient Glow Orbs */}
+      <div className="absolute top-[-15%] left-[-10%] w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] rounded-full bg-indigo-600/10 dark:bg-indigo-600/15 blur-[140px] pointer-events-none -z-10 mix-blend-screen" />
+      <div className="absolute bottom-[-15%] right-[-10%] w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] rounded-full bg-violet-600/10 dark:bg-violet-600/15 blur-[140px] pointer-events-none -z-10 mix-blend-screen" />
 
-      {/* Mobile Sidebar Overlay */}
+      {/* Mobile Sidebar Backdrop Overlay */}
       {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden"
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden animate-in fade-in duration-200"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
       {/* Left Sidebar */}
-      <aside className={`
-        fixed md:static inset-y-0 left-0 z-50 w-72 flex flex-col
-        bg-surface backdrop-blur-2xl border-r border-border shadow-2xl
-        transition-transform duration-300 ease-in-out
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-      `}>
-        <div className="p-5 pt-8 flex items-center justify-between">
+      <aside
+        className={`
+          fixed md:static inset-y-0 left-0 z-50 w-72 md:w-68 flex flex-col
+          bg-surface/80 dark:bg-[#07080c]/80 backdrop-blur-2xl border-r border-border
+          transition-transform duration-300 ease-in-out shadow-2xl md:shadow-none
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        `}
+      >
+        {/* Sidebar Brand Header */}
+        <div className="p-4 pt-5 pb-3 flex items-center justify-between border-b border-border/50">
           <div className="flex items-center space-x-3">
-            <div className="relative p-1.5 bg-surface rounded-xl border border-border shadow-inner backdrop-blur-xl">
-              <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 rounded-xl blur-sm -z-10"></div>
-              <img src="/logo.png" alt="SyncInk" className="w-6 h-6 object-cover rounded-lg" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+            <div className="relative w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 p-[1px] shadow-lg shadow-indigo-500/20 flex items-center justify-center">
+              <div className="w-full h-full bg-[#090b12] rounded-[11px] flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-indigo-400" />
+              </div>
             </div>
-            <h1 className="text-lg font-semibold tracking-wide text-muted">
-              SyncInk <span className="font-light opacity-70">AI</span>
-            </h1>
+            <div className="flex flex-col">
+              <span className="font-semibold text-foreground text-base tracking-tight flex items-center space-x-1.5">
+                <span>SyncInk</span>
+                <span className="text-[10px] uppercase font-bold tracking-widest px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  AI
+                </span>
+              </span>
+            </div>
           </div>
-          <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-2 text-muted hover:text-foreground">
+          <button
+            onClick={() => setIsSidebarOpen(false)}
+            className="md:hidden p-1.5 text-muted hover:text-foreground rounded-lg hover:bg-surface-hover transition-colors"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="px-4 py-2">
-          <button onClick={startNewChat} className="w-full flex items-center space-x-3 px-4 py-3 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-100 border border-indigo-500/20 rounded-2xl transition-all shadow-sm hover:shadow-indigo-500/10 group">
-            <Plus className="w-5 h-5 opacity-80 group-hover:scale-110 transition-transform" />
-            <span className="font-medium text-sm">New Chat</span>
+        {/* New Chat Button */}
+        <div className="p-3">
+          <button
+            onClick={handleStartNewChat}
+            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-indigo-500/10 hover:from-indigo-500/20 hover:via-purple-500/20 hover:to-indigo-500/20 border border-indigo-500/25 text-foreground font-medium text-sm transition-all duration-200 shadow-sm hover:shadow group cursor-pointer"
+          >
+            <div className="flex items-center space-x-2.5">
+              <div className="p-1 rounded-lg bg-indigo-500 text-white shadow-sm">
+                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              </div>
+              <span className="text-xs font-semibold tracking-wide">New Chat</span>
+            </div>
+            <span className="text-[10px] text-muted font-mono px-1.5 py-0.5 rounded bg-surface border border-border">
+              Ctrl+K
+            </span>
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6 scrollbar-hide">
-          <div>
-            <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3 px-2">Recent</h3>
-            <ul className="space-y-1">
-              {history.length === 0 ? (
-                <li className="px-3 py-2 text-muted text-xs">No conversations yet.</li>
-              ) : (
-                history.map((conv) => (
-                  <li key={conv.id} className="group flex items-center justify-between px-3 py-2.5 text-sm rounded-xl transition-colors hover:bg-surface">
-                    <button 
-                      onClick={() => loadConversation(conv.id)}
-                      className={`flex-1 flex items-center space-x-3 text-left truncate ${conversationId === conv.id ? 'text-indigo-300 font-medium' : 'text-muted hover:text-foreground'}`}
-                    >
-                      <MessageSquare className="w-4 h-4 flex-shrink-0 opacity-50" />
-                      <span className="truncate">{conv.title}</span>
-                    </button>
-                    <button onClick={(e) => deleteConversation(e, conv.id)} className="opacity-0 group-hover:opacity-100 p-1 text-muted hover:text-red-400 hover:bg-surface rounded-md transition-all">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </li>
-                ))
-              )}
-            </ul>
+        {/* Recent Conversations List */}
+        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1 custom-scrollbar">
+          <div className="px-2 py-1 text-[11px] font-semibold text-muted uppercase tracking-wider">
+            Recent Conversations
           </div>
+
+          {history.length === 0 ? (
+            <div className="px-3 py-8 text-center text-xs text-muted/70">
+              No conversations yet. Start a new chat!
+            </div>
+          ) : (
+            history.map((item) => {
+              const isSelected = item.id === conversationId;
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => handleSelectConversation(item)}
+                  className={`
+                    group relative flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium cursor-pointer transition-all duration-150
+                    ${
+                      isSelected
+                        ? 'bg-indigo-500/15 text-indigo-400 dark:text-indigo-300 font-semibold border border-indigo-500/20 shadow-sm'
+                        : 'text-foreground/80 hover:bg-surface-hover hover:text-foreground'
+                    }
+                  `}
+                >
+                  <span className="truncate flex-1 pr-2">{item.title}</span>
+                  <button
+                    onClick={(e) => handleDeleteConversation(e, item.id)}
+                    className="opacity-0 group-hover:opacity-100 p-1 text-muted hover:text-red-400 rounded transition-opacity"
+                    title="Delete Chat"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            })
+          )}
         </div>
 
-        <div className="p-4 border-t border-border">
-          <button onClick={() => setIsSettingsOpen(true)} className="w-full flex items-center space-x-3 px-3 py-2.5 text-muted hover:text-foreground hover:bg-surface rounded-xl transition-colors text-sm text-left">
-            <Settings className="w-4 h-4 opacity-60" />
-            <span>Settings</span>
-          </button>
-          <div onClick={() => setIsSettingsOpen(true)} className="mt-2 flex items-center space-x-3 px-3 py-2 text-muted rounded-xl cursor-pointer hover:bg-surface transition-colors">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-xs font-bold shadow-inner">
+        {/* Sidebar Footer Menu */}
+        <div className="p-3 border-t border-border/50 bg-surface/50 dark:bg-black/20 flex flex-col space-y-2">
+          {/* Theme Switcher & Settings */}
+          <div className="flex items-center justify-between px-1">
+            <button
+              onClick={toggleTheme}
+              className="flex items-center space-x-2 text-xs text-muted hover:text-foreground p-1.5 rounded-lg hover:bg-surface-hover transition-colors cursor-pointer"
+              title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+            >
+              {theme === 'dark' ? (
+                <>
+                  <Sun className="w-4 h-4 text-amber-400" />
+                  <span>Light Mode</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="w-4 h-4 text-indigo-500" />
+                  <span>Dark Mode</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-1.5 text-muted hover:text-foreground rounded-lg hover:bg-surface-hover transition-colors cursor-pointer"
+              title="Settings"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* User Account Tile */}
+          <div
+            onClick={() => setIsSettingsOpen(true)}
+            className="flex items-center space-x-3 p-2 rounded-xl hover:bg-surface-hover cursor-pointer transition-colors border border-transparent hover:border-border"
+          >
+            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center text-[11px] font-bold text-white shadow-sm">
               SI
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">SyncInk User</p>
-              <p className="text-xs text-muted truncate">Free Plan</p>
+              <p className="text-xs font-semibold text-foreground truncate">SyncInk User</p>
+              <p className="text-[10px] text-muted truncate">Free Tier · 24/7 Live</p>
             </div>
           </div>
         </div>
       </aside>
 
-      {/* Main Workspace */}
-      <main className="relative flex-1 flex flex-col h-full w-full min-w-0 bg-transparent">
-        <header className="md:hidden flex items-center justify-between p-4 border-b border-border bg-surface backdrop-blur-xl z-20">
-          <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-muted hover:text-foreground bg-surface rounded-lg border border-border">
-            <Menu className="w-5 h-5" />
-          </button>
-          <span className="font-semibold text-foreground tracking-wide text-lg">SyncInk <span className="font-light opacity-70">AI</span></span>
-          <button onClick={startNewChat} className="p-2 text-muted hover:text-foreground bg-surface rounded-lg border border-border">
-            <Plus className="w-5 h-5" />
-          </button>
+      {/* Main Chat View Area */}
+      <main className="relative flex-1 flex flex-col h-full w-full min-w-0 bg-transparent overflow-hidden">
+        {/* Top Floating App Bar */}
+        <header className="flex items-center justify-between px-4 py-3 border-b border-border/40 backdrop-blur-md bg-surface/30 z-20">
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="md:hidden p-2 rounded-xl text-muted hover:text-foreground hover:bg-surface-hover transition-colors cursor-pointer"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="flex items-center space-x-2">
+              <span className="font-semibold text-sm text-foreground">SyncInk Intelligence</span>
+              <div className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Online</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleStartNewChat}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-muted hover:text-foreground hover:bg-surface-hover border border-border/50 transition-colors cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">New Chat</span>
+            </button>
+          </div>
         </header>
 
-        {/* Chat Area */}
-        <div className="flex-1 overflow-y-auto w-full scroll-smooth scrollbar-hide pb-40">
-          <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 md:px-8 space-y-10">
-            
+        {/* Scrollable Messages Stream */}
+        <div className="flex-1 overflow-y-auto w-full custom-scrollbar px-4 sm:px-6 md:px-8 pb-32 pt-4">
+          <div className="max-w-3xl mx-auto space-y-6">
             {messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center min-h-[70vh] animate-in fade-in slide-in-from-bottom-4 duration-1000 ease-out">
+              /* Hero Empty State */
+              <div className="flex flex-col items-center justify-center min-h-[60vh] text-center pt-8 animate-in fade-in duration-700">
+                {/* Glowing SyncInk Emblem */}
                 <div className="relative mb-6">
-                  <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/30 to-purple-500/30 blur-2xl rounded-full mix-blend-screen animate-pulse"></div>
-                  <div className="relative p-1 bg-surface rounded-3xl border border-border shadow-2xl backdrop-blur-xl">
-                    <img src="/logo.png" alt="SyncInk" className="w-20 h-20 object-cover rounded-2xl shadow-inner opacity-90" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                  <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/30 to-violet-500/30 rounded-3xl blur-2xl animate-pulse-subtle -z-10" />
+                  <div className="w-20 h-20 rounded-3xl bg-surface/90 dark:bg-white/[0.04] border border-border shadow-2xl backdrop-blur-2xl flex items-center justify-center">
+                    <Sparkles className="w-10 h-10 text-indigo-500 dark:text-indigo-400" />
                   </div>
                 </div>
-                <h2 className="text-4xl md:text-5xl font-semibold text-center text-foreground tracking-tight drop-shadow-sm mb-2">
+
+                <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-2">
                   SyncInk AI
-                </h2>
-                <p className="text-lg text-muted tracking-wide font-medium mb-12">Create. Think. Sync.</p>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl">
-                  <button onClick={() => setInput("Write a beautiful poem about liquid glass UI...")} className="group relative p-5 bg-surface hover:bg-surface-hover border border-border rounded-2xl text-left transition-all hover:scale-[1.02] hover:shadow-lg backdrop-blur-md overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/0 via-indigo-500/5 to-indigo-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out"></div>
-                    <FileText className="w-5 h-5 text-indigo-400 mb-3 opacity-80" />
-                    <h3 className="text-muted font-medium mb-1 text-sm">Write something</h3>
-                    <p className="text-muted text-xs">Draft emails, essays, or code</p>
+                </h1>
+                <p className="text-sm sm:text-base text-muted font-normal max-w-md mb-8">
+                  Fast, elegant intelligence for writing, code, research, and deep thinking.
+                </p>
+
+                {/* Prompt Suggestion Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl text-left">
+                  <button
+                    onClick={() => handleSendMessage('Explain how quantum computers work in simple terms.')}
+                    className="p-4 rounded-2xl bg-surface/60 dark:bg-white/[0.02] hover:bg-surface dark:hover:bg-white/[0.06] border border-border hover:border-indigo-500/30 transition-all duration-200 shadow-sm hover:shadow-md group text-left cursor-pointer"
+                  >
+                    <div className="flex items-center space-x-2 text-indigo-400 mb-1.5">
+                      <Lightbulb className="w-4 h-4" />
+                      <span className="text-xs font-semibold text-foreground">Explain simply</span>
+                    </div>
+                    <p className="text-xs text-muted leading-relaxed">
+                      How quantum computers work in simple terms
+                    </p>
                   </button>
-                  <button onClick={() => fileInputRef.current?.click()} className="group relative p-5 bg-surface hover:bg-surface-hover border border-border rounded-2xl text-left transition-all hover:scale-[1.02] hover:shadow-lg backdrop-blur-md overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-purple-500/5 to-purple-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out"></div>
-                    <LayoutGrid className="w-5 h-5 text-purple-400 mb-3 opacity-80" />
-                    <h3 className="text-muted font-medium mb-1 text-sm">Analyze a file</h3>
-                    <p className="text-muted text-xs">Summarize documents or data</p>
+
+                  <button
+                    onClick={() => handleSendMessage('Draft a high-impact product announcement email.')}
+                    className="p-4 rounded-2xl bg-surface/60 dark:bg-white/[0.02] hover:bg-surface dark:hover:bg-white/[0.06] border border-border hover:border-indigo-500/30 transition-all duration-200 shadow-sm hover:shadow-md group text-left cursor-pointer"
+                  >
+                    <div className="flex items-center space-x-2 text-violet-400 mb-1.5">
+                      <FileText className="w-4 h-4" />
+                      <span className="text-xs font-semibold text-foreground">Draft an email</span>
+                    </div>
+                    <p className="text-xs text-muted leading-relaxed">
+                      High-impact product launch announcement
+                    </p>
                   </button>
-                  <button onClick={() => setInput("Generate 5 unique startup ideas for...")} className="group relative p-5 bg-surface hover:bg-surface-hover border border-border rounded-2xl text-left transition-all hover:scale-[1.02] hover:shadow-lg backdrop-blur-md overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-blue-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out"></div>
-                    <Sparkles className="w-5 h-5 text-blue-400 mb-3 opacity-80" />
-                    <h3 className="text-muted font-medium mb-1 text-sm">Generate ideas</h3>
-                    <p className="text-muted text-xs">Brainstorm creative concepts</p>
+
+                  <button
+                    onClick={() => handleSendMessage('Write a clean Next.js React component for an animated navbar.')}
+                    className="p-4 rounded-2xl bg-surface/60 dark:bg-white/[0.02] hover:bg-surface dark:hover:bg-white/[0.06] border border-border hover:border-indigo-500/30 transition-all duration-200 shadow-sm hover:shadow-md group text-left cursor-pointer"
+                  >
+                    <div className="flex items-center space-x-2 text-cyan-400 mb-1.5">
+                      <Code2 className="w-4 h-4" />
+                      <span className="text-xs font-semibold text-foreground">Write clean code</span>
+                    </div>
+                    <p className="text-xs text-muted leading-relaxed">
+                      Next.js component for an animated navbar
+                    </p>
                   </button>
-                  <button onClick={() => setInput("What can you do for me?")} className="group relative p-5 bg-surface hover:bg-surface-hover border border-border rounded-2xl text-left transition-all hover:scale-[1.02] hover:shadow-lg backdrop-blur-md overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-teal-500/0 via-teal-500/5 to-teal-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out"></div>
-                    <Zap className="w-5 h-5 text-teal-400 mb-3 opacity-80" />
-                    <h3 className="text-muted font-medium mb-1 text-sm">Ask SyncInk AI</h3>
-                    <p className="text-muted text-xs">Real-time answers and facts</p>
+
+                  <button
+                    onClick={() => handleSendMessage('Brainstorm 5 innovative startup ideas for 2026.')}
+                    className="p-4 rounded-2xl bg-surface/60 dark:bg-white/[0.02] hover:bg-surface dark:hover:bg-white/[0.06] border border-border hover:border-indigo-500/30 transition-all duration-200 shadow-sm hover:shadow-md group text-left cursor-pointer"
+                  >
+                    <div className="flex items-center space-x-2 text-emerald-400 mb-1.5">
+                      <Zap className="w-4 h-4" />
+                      <span className="text-xs font-semibold text-foreground">Brainstorm ideas</span>
+                    </div>
+                    <p className="text-xs text-muted leading-relaxed">
+                      5 innovative startup ideas in tech for 2026
+                    </p>
                   </button>
                 </div>
               </div>
             ) : (
-              messages.map((m: any) => (
-                <div key={m.id} className={`flex w-full animate-in fade-in slide-in-from-bottom-2 duration-500 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  {m.role === 'assistant' && (
-                    <div className="flex-shrink-0 mr-4 hidden sm:block">
-                      <div className="p-1 bg-surface rounded-full border border-border backdrop-blur-xl shadow-sm">
-                        <img src="/logo.png" alt="AI" className="w-7 h-7 object-cover rounded-full" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+              /* Message Thread */
+              messages.map((m: any) => {
+                const isUser = m.role === 'user';
+                const messageText =
+                  typeof m.content === 'string'
+                    ? m.content
+                    : Array.isArray(m.parts)
+                    ? m.parts
+                        .filter((p: any) => p.type === 'text')
+                        .map((p: any) => p.text)
+                        .join('\n')
+                    : '';
+
+                const imageParts = Array.isArray(m.parts)
+                  ? m.parts.filter((p: any) => p.type === 'image')
+                  : [];
+
+                return (
+                  <div
+                    key={m.id}
+                    className={`flex w-full animate-in fade-in duration-300 ${
+                      isUser ? 'justify-end' : 'justify-start'
+                    }`}
+                  >
+                    <div
+                      className={`flex space-x-3 max-w-[88%] sm:max-w-[82%] ${
+                        isUser ? 'flex-row-reverse space-x-reverse' : 'flex-row'
+                      }`}
+                    >
+                      {/* Avatar */}
+                      {!isUser && (
+                        <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex-shrink-0 flex items-center justify-center text-white shadow-sm mt-1">
+                          <Bot className="w-4 h-4" />
+                        </div>
+                      )}
+
+                      {/* Message Bubble Container */}
+                      <div className="flex flex-col space-y-1.5 min-w-0">
+                        {/* Attachments (if user sent images) */}
+                        {imageParts.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-1 justify-end">
+                            {imageParts.map((img: any, idx: number) => (
+                              <img
+                                key={idx}
+                                src={img.image}
+                                alt="Attachment"
+                                className="max-w-[200px] max-h-[160px] object-cover rounded-xl border border-border shadow"
+                              />
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Content Box */}
+                        <div
+                          className={`
+                            px-4 py-3 text-sm leading-relaxed rounded-2xl
+                            ${
+                              isUser
+                                ? 'bg-indigo-600 text-white rounded-br-sm shadow-md font-normal'
+                                : 'bg-surface/90 dark:bg-white/[0.04] border border-border text-foreground rounded-tl-sm shadow-sm backdrop-blur-xl'
+                            }
+                          `}
+                        >
+                          {isUser ? (
+                            <div className="whitespace-pre-wrap break-words">{messageText}</div>
+                          ) : (
+                            <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:p-0 prose-pre:bg-transparent">
+                              <ReactMarkdown
+                                components={{
+                                  code({ className, children }) {
+                                    const isInline = !className;
+                                    if (isInline) {
+                                      return (
+                                        <code className="px-1.5 py-0.5 rounded-md bg-black/10 dark:bg-white/10 text-indigo-400 font-mono text-xs font-medium">
+                                          {children}
+                                        </code>
+                                      );
+                                    }
+                                    return <CodeBlock className={className}>{children}</CodeBlock>;
+                                  },
+                                }}
+                              >
+                                {messageText}
+                              </ReactMarkdown>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Assistant Message Actions Bar */}
+                        {!isUser && messageText && (
+                          <div className="flex items-center space-x-2 pt-1 pl-1 text-muted">
+                            <button
+                              onClick={() => copyMessageContent(m.id, messageText)}
+                              className="flex items-center space-x-1 text-[11px] hover:text-foreground p-1 rounded transition-colors cursor-pointer"
+                              title="Copy response"
+                            >
+                              {copiedMessageId === m.id ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-400" />
+                                  <span className="text-emerald-400">Copied</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3" />
+                                  <span>Copy</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  )}
-                  <div className={`flex flex-col max-w-[85%] md:max-w-[75%] ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
-                    {m.parts && m.parts.some((p:any) => p.type === 'image' || p.type === 'file') && (
-                      <div className={`flex flex-wrap gap-2 mb-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        {m.parts.map((p:any, i:number) => {
-                          if (p.type === 'image') return <img key={i} src={p.image} className="max-w-[240px] max-h-[240px] rounded-2xl object-cover border border-border shadow-lg" />;
-                          if (p.type === 'file') return (
-                            <div key={i} className="flex items-center px-4 py-2.5 bg-surface backdrop-blur-md rounded-xl border border-border text-sm text-muted shadow-sm">
-                              <FileText className="w-4 h-4 mr-2 opacity-70" />
-                              <span className="truncate max-w-[150px]">Attachment</span>
-                            </div>
-                          );
-                          return null;
-                        })}
-                      </div>
-                    )}
-                    {((m.content) || (m.parts && m.parts.some((p:any) => p.type === 'text'))) && (
-                      <div className={`
-                        prose prose-invert max-w-none text-[15px]
-                        ${m.role === 'user' 
-                          ? 'bg-surface backdrop-blur-2xl text-foreground rounded-[2rem] rounded-tr-md px-6 py-4 border border-white/[0.08] shadow-lg' 
-                          : 'text-muted prose-p:leading-relaxed prose-pre:bg-surface prose-pre:backdrop-blur-xl prose-pre:border prose-pre:border-border prose-pre:shadow-inner prose-pre:rounded-2xl prose-headings:font-medium prose-a:text-indigo-400 mt-2'
-                        }
-                      `}>
-                        <ReactMarkdown>
-                          {m.content || (m.parts && m.parts.filter((p:any) => p.type === 'text').map((p:any) => p.text).join('\n')) || ''}
-                        </ReactMarkdown>
-                      </div>
-                    )}
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
-            
+
+            {/* AI Streaming Indicator */}
+            {isGenerating && (
+              <div className="flex items-center space-x-3 text-muted text-xs animate-in fade-in duration-300 pl-2">
+                <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-sm">
+                  <Bot className="w-4 h-4 animate-spin" />
+                </div>
+                <div className="flex items-center space-x-1.5 py-2 px-3 rounded-full bg-surface border border-border">
+                  <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                  <span className="font-medium text-[12px]">SyncInk is thinking...</span>
+                </div>
+              </div>
+            )}
+
+            {/* Error Message Pill */}
             {error && (
-              <div className="p-5 bg-red-500/10 backdrop-blur-2xl border border-red-500/20 rounded-3xl text-red-200 flex items-start space-x-3 shadow-xl">
-                <div className="mt-0.5 opacity-80">âš ï¸</div>
-                <div>
-                  <strong className="block text-red-400 font-medium">Error</strong>
-                  <span className="text-sm opacity-90">{error.message || 'Something went wrong.'}</span>
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs backdrop-blur-md animate-in fade-in duration-300">
+                <div className="flex items-center space-x-2.5">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>{error.message || 'An error occurred while generating. Please try again.'}</span>
                 </div>
+                <button
+                  onClick={() => handleSendMessage()}
+                  className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 font-semibold transition-colors cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Retry</span>
+                </button>
               </div>
             )}
-            
-            {isProcessing && (
-              <div className="flex justify-start animate-in fade-in duration-500">
-                <div className="flex-shrink-0 mr-4 hidden sm:block">
-                  <div className="p-1 bg-surface rounded-full border border-border backdrop-blur-xl shadow-sm animate-pulse">
-                    <img src="/logo.png" alt="AI" className="w-7 h-7 object-cover rounded-full" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                  </div>
-                </div>
-                <div className="flex items-center space-x-1.5 h-12 px-5 bg-surface backdrop-blur-2xl border border-border rounded-[2rem] rounded-tl-md shadow-sm mt-2">
-                  <div className="w-2 h-2 bg-indigo-400/80 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-purple-400/80 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></div>
-                  <div className="w-2 h-2 bg-indigo-400/80 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} className="h-10" />
+
+            <div ref={messagesEndRef} className="h-4" />
           </div>
         </div>
 
-        {/* Floating AI Composer */}
-        <div className="absolute bottom-0 left-0 right-0 px-4 pt-4 pb-2 md:px-6 md:pt-6 md:pb-3 bg-gradient-to-t from-background via-background/90 to-transparent pointer-events-none flex justify-center z-30">
+        {/* Floating Composer Area */}
+        <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 bg-gradient-to-t from-background via-background/90 to-transparent pointer-events-none flex justify-center z-30">
           <div className="w-full max-w-3xl pointer-events-auto">
-            
+            {/* Attachment preview tags */}
             {attachments.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-3 px-2 animate-in slide-in-from-bottom-2">
+              <div className="flex flex-wrap gap-2 mb-2 px-2 animate-in slide-in-from-bottom-2 duration-200">
                 {attachments.map((file, idx) => (
-                  <div key={idx} className="relative flex items-center bg-surface backdrop-blur-2xl border border-border rounded-xl px-3 py-1.5 shadow-lg text-sm text-muted">
+                  <div
+                    key={idx}
+                    className="flex items-center space-x-1.5 px-3 py-1 rounded-xl bg-surface border border-border text-xs text-foreground shadow-sm"
+                  >
+                    <Paperclip className="w-3 h-3 text-indigo-400" />
                     <span className="truncate max-w-[120px] font-medium">{file.name}</span>
-                    <button type="button" onClick={() => removeAttachment(idx)} className="ml-2 hover:bg-surface-hover rounded-full p-0.5 transition-colors">
-              <X className="w-4 h-4" />
+                    <button
+                      onClick={() => removeAttachment(idx)}
+                      className="p-0.5 hover:text-red-400 transition-colors"
+                    >
+                      <X className="w-3 h-3" />
                     </button>
                   </div>
                 ))}
               </div>
             )}
 
+            {/* Glass Pill Form */}
             <form
-              onSubmit={(e) => handleSubmit(e)}
-              className="relative flex items-end bg-glass backdrop-blur-[32px] border border-border rounded-[2rem] shadow-2xl focus-within:bg-glass-hover focus-within:border-border focus-within:shadow-[0_0_40px_rgba(99,102,241,0.1)] transition-all duration-300 px-2 py-1.5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSendMessage();
+              }}
+              className="relative flex items-end bg-surface/95 dark:bg-[#10121a]/95 backdrop-blur-2xl border border-border rounded-2xl shadow-xl hover:border-indigo-500/30 focus-within:border-indigo-500/50 focus-within:shadow-[0_0_30px_rgba(99,102,241,0.12)] transition-all duration-300 p-1.5"
             >
-              <input type="file" multiple className="hidden" ref={fileInputRef} onChange={handleFileChange} />
-              
+              <input
+                type="file"
+                multiple
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                className="hidden"
+                accept="image/*,.pdf,.txt,.md"
+              />
+
               {/* Left Action Buttons */}
               <div className="flex items-center space-x-1 mb-1 ml-1">
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-muted hover:text-foreground hover:bg-surface rounded-full transition-colors flex items-center justify-center group" title="Attach file">
-                  <Paperclip className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-2 text-muted hover:text-foreground rounded-xl hover:bg-surface-hover transition-colors cursor-pointer"
+                  title="Attach images or files"
+                >
+                  <Paperclip className="w-4 h-4" />
                 </button>
-                <button type="button" onClick={toggleMic} className={`p-2 rounded-full transition-colors flex items-center justify-center group hidden sm:flex ${isListening ? 'text-red-400 bg-red-400/10' : 'text-muted hover:text-foreground hover:bg-surface'}`} title="Voice input">
-                  <Mic className={`w-5 h-5 ${isListening ? 'animate-pulse' : 'group-hover:scale-110 transition-transform'}`} />
+
+                <button
+                  type="button"
+                  onClick={toggleSpeech}
+                  className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                    isListening
+                      ? 'text-red-400 bg-red-500/10 animate-pulse'
+                      : 'text-muted hover:text-foreground hover:bg-surface-hover'
+                  }`}
+                  title={isListening ? 'Stop listening' : 'Voice typing'}
+                >
+                  {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                 </button>
               </div>
 
+              {/* Text Input Area */}
               <textarea
-                className="flex-1 bg-transparent text-foreground placeholder:text-muted py-3 px-3 mx-1 focus:outline-none resize-none min-h-[44px] max-h-[30vh] leading-relaxed font-medium tracking-wide scrollbar-hide text-[15px]"
-                value={input || ''}
-                placeholder="Message SyncInk AI..."
-                onChange={handleInputChange}
+                ref={textareaRef}
+                value={inputPrompt}
+                onChange={(e) => setInputPrompt(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    if ((input.trim() || attachments.length > 0) && !isProcessing) handleSubmit();
+                    handleSendMessage();
                   }
                 }}
-                disabled={isProcessing}
                 rows={1}
-                style={{ height: input ? 'auto' : '44px' }}
+                placeholder="Ask SyncInk anything... (Shift+Enter for newline)"
+                className="flex-1 bg-transparent py-2.5 px-3 text-sm text-foreground placeholder:text-muted focus:outline-none resize-none min-h-[40px] max-h-[160px] leading-relaxed custom-scrollbar font-normal"
               />
 
-                {/* Right Action Button */}
-                <div className="flex items-center mb-1 mr-1">
-                  <button 
-                    type="submit" 
-                    disabled={isProcessing || (!input?.trim() && attachments.length === 0)} 
-                    className="p-2 bg-foreground text-background rounded-full hover:scale-105 transition-all disabled:opacity-30 disabled:hover:scale-100 flex items-center justify-center group shadow-lg"
+              {/* Right Send / Stop Button */}
+              <div className="flex items-center mb-1 mr-1">
+                {isGenerating ? (
+                  <button
+                    type="button"
+                    onClick={() => stop()}
+                    className="p-2 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-colors shadow-sm cursor-pointer"
+                    title="Stop generation"
                   >
-                    <Send className="w-5 h-5 ml-0.5" />
+                    <Square className="w-4 h-4 fill-current" />
                   </button>
-                </div>
-              </form>
-            <p className="text-center text-[11px] text-muted mt-2 font-medium tracking-wide">
-              SyncInk AI can make mistakes. Check important info.
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!inputPrompt.trim() && attachments.length === 0}
+                    className="p-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-30 disabled:hover:bg-indigo-600 transition-all shadow-md cursor-pointer"
+                    title="Send message"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </form>
+
+            {/* Bottom Disclaimer */}
+            <p className="text-center text-[11px] text-muted/70 mt-2 font-medium tracking-wide">
+              SyncInk AI can make mistakes. Verify important information.
             </p>
           </div>
         </div>
       </main>
 
-      {/* Settings Modal */}
+      {/* Settings Modal Dialog */}
       {isSettingsOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0f0f13] border border-border rounded-2xl w-full max-w-md shadow-2xl p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-foreground">Settings</h2>
-              <button onClick={() => setIsSettingsOpen(false)} className="text-muted hover:text-foreground"><X className="w-5 h-5"/></button>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-surface border border-border rounded-2xl shadow-2xl p-6 relative animate-in zoom-in-95 duration-200">
+            <button
+              onClick={() => setIsSettingsOpen(false)}
+              className="absolute top-4 right-4 p-1.5 text-muted hover:text-foreground rounded-lg hover:bg-surface-hover transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center border border-indigo-500/20">
+                <Settings className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground text-base">Account & Settings</h3>
+                <p className="text-xs text-muted">Manage your preferences and data</p>
+              </div>
             </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-muted mb-1.5">Appearance</label>
-                <select className="w-full bg-surface border border-border rounded-lg p-2.5 text-foreground focus:outline-none focus:border-indigo-500/50">
-                  <option>System (Dark)</option>
-                  <option>Dark Mode</option>
-                  <option>Light Mode</option>
-                </select>
+
+            <div className="space-y-4 text-xs">
+              {/* Appearance */}
+              <div className="p-3.5 rounded-xl bg-surface-hover border border-border/60">
+                <div className="font-semibold text-foreground mb-2 flex items-center justify-between">
+                  <span>Appearance</span>
+                  <span className="text-[11px] text-muted font-normal capitalize">{theme}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      setTheme('light');
+                      localStorage.setItem('syncink_theme', 'light');
+                      document.documentElement.classList.remove('dark');
+                      document.documentElement.setAttribute('data-theme', 'light');
+                    }}
+                    className={`p-2 rounded-lg border text-center font-medium transition-colors cursor-pointer ${
+                      theme === 'light'
+                        ? 'border-indigo-500 bg-indigo-500/10 text-indigo-500 font-semibold'
+                        : 'border-border text-muted hover:text-foreground'
+                    }`}
+                  >
+                    Light Theme
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTheme('dark');
+                      localStorage.setItem('syncink_theme', 'dark');
+                      document.documentElement.classList.add('dark');
+                      document.documentElement.setAttribute('data-theme', 'dark');
+                    }}
+                    className={`p-2 rounded-lg border text-center font-medium transition-colors cursor-pointer ${
+                      theme === 'dark'
+                        ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400 font-semibold'
+                        : 'border-border text-muted hover:text-foreground'
+                    }`}
+                  >
+                    Dark Theme
+                  </button>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-muted mb-1.5">Default Model</label>
-                <select className="w-full bg-surface border border-border rounded-lg p-2.5 text-foreground focus:outline-none focus:border-indigo-500/50">
-                  <option>Gemini 3.5 Flash</option>
-                  <option>Gemini 3.7 Flash</option>
-                </select>
+
+              {/* Model Info */}
+              <div className="p-3.5 rounded-xl bg-surface-hover border border-border/60">
+                <div className="font-semibold text-foreground mb-1">Intelligence Engine</div>
+                <p className="text-muted leading-relaxed text-[11px]">
+                  SyncInk AI is powered by high-speed Gemini 3.6 Flash with real-time reasoning and zero-latency responses.
+                </p>
               </div>
-              <div className="pt-4 mt-4 border-t border-border">
-                <button onClick={() => {
-                  if (confirm("Clear all conversations?")) {
-                    setHistory([]);
-                    startNewChat();
-                    setIsSettingsOpen(false);
-                  }
-                }} className="w-full py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg font-medium transition-colors">
-                  Clear All History
+
+              {/* Data & History */}
+              <div className="p-3.5 rounded-xl bg-surface-hover border border-border/60">
+                <div className="font-semibold text-foreground mb-1">Privacy & Data</div>
+                <p className="text-muted mb-3 text-[11px] leading-relaxed">
+                  Your chat conversations are securely stored directly in your browser. Nothing is shared with 3rd parties.
+                </p>
+                <button
+                  onClick={handleClearAllHistory}
+                  className="w-full flex items-center justify-center space-x-2 px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 font-medium transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Clear All Conversations</span>
                 </button>
               </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-border flex items-center justify-between text-[11px] text-muted">
+              <span>SyncInk AI v2.5</span>
+              <span className="text-emerald-400 flex items-center space-x-1">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Encrypted & Verified</span>
+              </span>
             </div>
           </div>
         </div>
@@ -559,4 +1006,4 @@ function ChatApp() {
   );
 }
 
-export default dynamic(() => Promise.resolve(ChatApp), { ssr: false });
+export default dynamic(() => Promise.resolve(MainChatApp), { ssr: false });

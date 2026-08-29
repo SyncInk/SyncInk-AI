@@ -2,15 +2,53 @@
 @plugin "@tailwindcss/typography";
 
 :root {
-  --background: #f4f5f7;
-  --foreground: #111111;
+  --background: #fbfbfd;
+  --foreground: #090a0f;
   --surface: #ffffff;
-  --surface-hover: rgba(0,0,0,0.03);
-  --border: rgba(0,0,0,0.08);
-  --muted: rgba(0,0,0,0.5);
-  --glass: rgba(255,255,255,0.7);
-  --glass-hover: rgba(255,255,255,0.9);
-  --glass-border: rgba(0,0,0,0.05);
+  --surface-hover: rgba(0, 0, 0, 0.04);
+  --border: rgba(0, 0, 0, 0.08);
+  --muted: rgba(0, 0, 0, 0.55);
+  --glass: rgba(255, 255, 255, 0.85);
+  --glass-hover: rgba(255, 255, 255, 0.95);
+  --glass-border: rgba(0, 0, 0, 0.09);
+  --user-bubble: #090a0f;
+  --user-text: #ffffff;
+  --ambient-1: rgba(99, 102, 241, 0.08);
+  --ambient-2: rgba(168, 85, 247, 0.08);
+}
+
+.dark, [data-theme="dark"] {
+  --background: #06070a;
+  --foreground: #f4f5f8;
+  --surface: rgba(255, 255, 255, 0.03);
+  --surface-hover: rgba(255, 255, 255, 0.07);
+  --border: rgba(255, 255, 255, 0.08);
+  --muted: rgba(255, 255, 255, 0.5);
+  --glass: rgba(18, 20, 29, 0.7);
+  --glass-hover: rgba(26, 29, 42, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --user-bubble: rgba(99, 102, 241, 0.2);
+  --user-text: #ffffff;
+  --ambient-1: rgba(99, 102, 241, 0.14);
+  --ambient-2: rgba(139, 92, 246, 0.14);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --background: #06070a;
+    --foreground: #f4f5f8;
+    --surface: rgba(255, 255, 255, 0.03);
+    --surface-hover: rgba(255, 255, 255, 0.07);
+    --border: rgba(255, 255, 255, 0.08);
+    --muted: rgba(255, 255, 255, 0.5);
+    --glass: rgba(18, 20, 29, 0.7);
+    --glass-hover: rgba(26, 29, 42, 0.85);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --user-bubble: rgba(99, 102, 241, 0.2);
+    --user-text: #ffffff;
+    --ambient-1: rgba(99, 102, 241, 0.14);
+    --ambient-2: rgba(139, 92, 246, 0.14);
+  }
 }
 
 @theme inline {
@@ -23,39 +61,43 @@
   --color-glass: var(--glass);
   --color-glass-hover: var(--glass-hover);
   --color-glass-border: var(--glass-border);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #020204;
-    --foreground: #ffffff;
-    --surface: rgba(255,255,255,0.02);
-    --surface-hover: rgba(255,255,255,0.05);
-    --border: rgba(255,255,255,0.05);
-    --muted: rgba(255,255,255,0.5);
-    --glass: rgba(255,255,255,0.04);
-    --glass-hover: rgba(255,255,255,0.06);
-    --glass-border: rgba(255,255,255,0.1);
-  }
+  --color-user-bubble: var(--user-bubble);
+  --color-user-text: var(--user-text);
+  --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
+/* Hide scrollbars where needed */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
-
-/* Hide scrollbar for IE, Edge and Firefox */
 .scrollbar-hide {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Elegant thin scrollbar for chat history */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(150, 150, 150, 0.2);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(150, 150, 150, 0.4);
 }
 
 textarea::-webkit-scrollbar {
@@ -64,4 +106,13 @@ textarea::-webkit-scrollbar {
 textarea {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.03); }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s ease-in-out infinite;
 }
