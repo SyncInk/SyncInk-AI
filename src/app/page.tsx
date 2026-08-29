@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useChat } from '@ai-sdk/react';
-import { SignedIn, SignedOut, RedirectToSignIn } from '@clerk/nextjs';
+import { SignedIn, SignedOut, SignIn } from '@clerk/nextjs';
 import { DefaultChatTransport } from 'ai';
 import ReactMarkdown from 'react-markdown';
 import {
@@ -1547,7 +1547,9 @@ function MainChatApp() {
         </div>
       </SignedIn>
       <SignedOut>
-        <RedirectToSignIn />
+        <div className="flex h-screen w-full items-center justify-center bg-background">
+          <SignIn />
+        </div>
       </SignedOut>
     </>
   );

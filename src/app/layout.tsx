@@ -28,16 +28,33 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
-  const isClerkValid = publishableKey.startsWith('pk_test_') || publishableKey.startsWith('pk_live_');
+  const secretKey = process.env.CLERK_SECRET_KEY || '';
+  
+  const isClerkValid = 
+    (publishableKey.startsWith('pk_test_') || publishableKey.startsWith('pk_live_')) &&
+    (secretKey.startsWith('sk_test_') || secretKey.startsWith('sk_live_'));
+
+  const safeFallback = (
+    <div style={{ display: 'flex', height: '100vh', width: '100vw', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000', color: '#fff', fontFamily: 'sans-serif' }}>
+      <div style={{ textAlign: 'center', padding: '2rem', border: '1px solid #333', borderRadius: '1rem', background: '#111', maxWidth: '500px' }}>
+        <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#ff4444' }}>Authentication Keys Missing</h2>
+        <p style={{ color: '#aaa', marginBottom: '1rem', lineHeight: '1.5' }}>
+          SyncInk is securely locked, but the server is missing the required authentication keys. 
+          To fix this, open your Vercel Dashboard and add both <code>NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code> and <code>CLERK_SECRET_KEY</code> to the Environment Variables.
+        </p>
+        <p style={{ color: '#aaa' }}>Then, redeploy the application.</p>
+      </div>
+    </div>
+  );
 
   const content = isClerkValid ? (
-    <ClerkErrorBoundary fallback={children}>
+    <ClerkErrorBoundary fallback={safeFallback}>
       <ClerkProvider publishableKey={publishableKey}>
         {children}
       </ClerkProvider>
     </ClerkErrorBoundary>
   ) : (
-    children
+    safeFallback
   );
 
   return (
