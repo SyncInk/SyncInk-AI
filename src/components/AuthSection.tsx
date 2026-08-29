@@ -25,7 +25,8 @@ import {
 } from 'lucide-react';
 import { ClerkErrorBoundary } from './ClerkErrorBoundary';
 
-const isClerkAvailable = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
+const isClerkAvailable = clerkKey.startsWith('pk_test_') || clerkKey.startsWith('pk_live_');
 
 interface AuthProps {
   onOpenSettings?: () => void;

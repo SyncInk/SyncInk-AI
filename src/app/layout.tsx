@@ -27,9 +27,10 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
+  const isClerkValid = publishableKey.startsWith('pk_test_') || publishableKey.startsWith('pk_live_');
 
-  const content = publishableKey ? (
+  const content = isClerkValid ? (
     <ClerkErrorBoundary fallback={children}>
       <ClerkProvider publishableKey={publishableKey}>
         {children}
