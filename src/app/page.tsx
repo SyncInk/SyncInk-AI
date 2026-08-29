@@ -233,10 +233,10 @@ function ChatApp() {
     }
   };
 
-  if (!isMounted) return <div className="h-[100dvh] w-full bg-[#05050A]" />;
+  if (!isMounted) return <div className="h-full w-full bg-[#020204]" />;
 
   return (
-    <div className="flex h-[100dvh] w-full bg-[#020204] text-gray-100 font-sans selection:bg-indigo-500/30 overflow-hidden relative" suppressHydrationWarning>
+    <div className="h-full w-full flex bg-[#020204] text-gray-100 font-sans selection:bg-indigo-500/30 overflow-hidden relative" suppressHydrationWarning>
       
       {/* Background Ambient Lighting */}
       <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/10 rounded-full blur-[150px] pointer-events-none mix-blend-screen"></div>
@@ -310,7 +310,7 @@ function ChatApp() {
             <Settings className="w-4 h-4 opacity-60" />
             <span>Settings</span>
           </button>
-          <div onClick={() => alert("Profile Modal Integration Ready")} className="mt-2 flex items-center space-x-3 px-3 py-2 text-white/80 rounded-xl cursor-pointer hover:bg-white/5 transition-colors">
+          <div onClick={() => setIsSettingsOpen(true)} className="mt-2 flex items-center space-x-3 px-3 py-2 text-white/80 rounded-xl cursor-pointer hover:bg-white/5 transition-colors">
             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-xs font-bold shadow-inner">
               SI
             </div>
@@ -459,7 +459,7 @@ function ChatApp() {
                   <div key={idx} className="relative flex items-center bg-white/10 backdrop-blur-2xl border border-white/20 rounded-xl px-3 py-1.5 shadow-lg text-sm text-white/90">
                     <span className="truncate max-w-[120px] font-medium">{file.name}</span>
                     <button type="button" onClick={() => removeAttachment(idx)} className="ml-2 hover:bg-white/20 rounded-full p-0.5 transition-colors">
-                      <X className="w-4 h-4" />
+              <X className="w-4 h-4" />
                     </button>
                   </div>
                 ))}
@@ -468,11 +468,22 @@ function ChatApp() {
 
             <form
               onSubmit={(e) => handleSubmit(e)}
-              className="relative flex flex-col bg-white/[0.04] backdrop-blur-[32px] border border-white/10 rounded-[2rem] shadow-2xl focus-within:bg-white/[0.06] focus-within:border-white/20 focus-within:shadow-[0_0_40px_rgba(99,102,241,0.1)] transition-all duration-300"
+              className="relative flex items-end bg-white/[0.04] backdrop-blur-[32px] border border-white/10 rounded-[2rem] shadow-2xl focus-within:bg-white/[0.06] focus-within:border-white/20 focus-within:shadow-[0_0_40px_rgba(99,102,241,0.1)] transition-all duration-300 px-2 py-1.5"
             >
               <input type="file" multiple className="hidden" ref={fileInputRef} onChange={handleFileChange} />
+              
+              {/* Left Action Buttons */}
+              <div className="flex items-center space-x-1 mb-1 ml-1">
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-white/50 hover:text-white hover:bg-white/10 rounded-full transition-colors flex items-center justify-center group" title="Attach file">
+                  <Paperclip className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                </button>
+                <button type="button" onClick={toggleMic} className={`p-2 rounded-full transition-colors flex items-center justify-center group hidden sm:flex ${isListening ? 'text-red-400 bg-red-400/10' : 'text-white/50 hover:text-white hover:bg-white/10'}`} title="Voice input">
+                  <Mic className={`w-5 h-5 ${isListening ? 'animate-pulse' : 'group-hover:scale-110 transition-transform'}`} />
+                </button>
+              </div>
+
               <textarea
-                className="w-full bg-transparent text-white placeholder-white/40 py-5 px-6 focus:outline-none resize-none min-h-[64px] max-h-[40vh] leading-relaxed font-medium tracking-wide scrollbar-hide text-[15px]"
+                className="flex-1 bg-transparent text-white placeholder-white/40 py-3 px-3 mx-1 focus:outline-none resize-none min-h-[44px] max-h-[30vh] leading-relaxed font-medium tracking-wide scrollbar-hide text-[15px]"
                 value={input || ''}
                 placeholder="Message SyncInk AI..."
                 onChange={handleInputChange}
@@ -484,32 +495,20 @@ function ChatApp() {
                 }}
                 disabled={isProcessing}
                 rows={1}
-                style={{ height: input ? 'auto' : '64px' }}
+                style={{ height: input ? 'auto' : '44px' }}
               />
 
-              <div className="flex items-center justify-between px-3 pb-3">
-                <div className="flex items-center space-x-1">
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2.5 text-white/50 hover:text-white hover:bg-white/10 rounded-full transition-colors flex items-center justify-center group" title="Attach file">
-                    <Paperclip className="w-5 h-5 group-hover:scale-105 transition-transform" />
-                  </button>
-                  <button type="button" onClick={toggleMic} className={`p-2.5 rounded-full transition-colors flex items-center justify-center group hidden sm:flex ${isListening ? 'text-red-400 bg-red-400/10' : 'text-white/50 hover:text-white hover:bg-white/10'}`} title="Voice input">
-                    <Mic className={`w-5 h-5 ${isListening ? 'animate-pulse' : 'group-hover:scale-105 transition-transform'}`} />
-                  </button>
-                  <select 
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                    className="flex items-center space-x-1.5 px-3 py-1.5 ml-1 text-xs font-medium text-indigo-300/70 hover:text-indigo-300 bg-transparent hover:bg-indigo-500/10 rounded-full transition-colors border border-indigo-500/0 hover:border-indigo-500/20 outline-none appearance-none cursor-pointer"
+                {/* Right Action Button */}
+                <div className="flex items-center mb-1 mr-1">
+                  <button 
+                    type="submit" 
+                    disabled={isProcessing || (!input?.trim() && attachments.length === 0)} 
+                    className="p-2 bg-white text-black rounded-full hover:scale-105 transition-all disabled:opacity-30 disabled:hover:scale-100 flex items-center justify-center group shadow-lg"
                   >
-                    <option value="gemini-3.5-flash" className="bg-[#1a1a2e] text-white">Gemini Pro</option>
-                    <option value="gemini-3.7-flash" className="bg-[#1a1a2e] text-white">Gemini Fast</option>
-                  </select>
+                    <Send className="w-5 h-5 ml-0.5" />
+                  </button>
                 </div>
-
-                <button type="submit" disabled={isProcessing || (!input?.trim() && attachments.length === 0)} className="p-3 bg-white text-black hover:bg-gray-100 hover:scale-105 active:scale-95 rounded-full transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center shadow-lg">
-                  <Send className="w-4 h-4 ml-0.5" />
-                </button>
-              </div>
-            </form>
+              </form>
             <p className="text-center text-[11px] text-white/30 mt-3 font-medium tracking-wide">
               SyncInk AI can make mistakes. Check important info.
             </p>
