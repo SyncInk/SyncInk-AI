@@ -31,7 +31,7 @@ export async function POST(req: Request) {
 
     const result = streamText({
       // @ts-ignore - useSearchGrounding is supported by the provider but not in these types
-      model: google('gemini-3.5-flash', { useSearchGrounding: true }),
+      model: google('gemini-1.5-flash', { useSearchGrounding: true }),
       system: `You are SyncInk AI, a highly capable and helpful AI assistant created by SyncInk.
 
 The current real-time date and time is: ${currentTime}.

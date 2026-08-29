@@ -450,7 +450,7 @@ function ChatApp() {
         </div>
 
         {/* Floating AI Composer */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background via-background/90 to-transparent pointer-events-none flex justify-center z-30">
+        <div className="absolute bottom-0 left-0 right-0 px-4 pt-4 pb-2 md:px-6 md:pt-6 md:pb-3 bg-gradient-to-t from-background via-background/90 to-transparent pointer-events-none flex justify-center z-30">
           <div className="w-full max-w-3xl pointer-events-auto">
             
             {attachments.length > 0 && (
@@ -509,7 +509,7 @@ function ChatApp() {
                   </button>
                 </div>
               </form>
-            <p className="text-center text-[11px] text-muted mt-3 font-medium tracking-wide">
+            <p className="text-center text-[11px] text-muted mt-2 font-medium tracking-wide">
               SyncInk AI can make mistakes. Check important info.
             </p>
           </div>
