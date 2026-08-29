@@ -233,10 +233,10 @@ function ChatApp() {
     }
   };
 
-  if (!isMounted) return <div className="h-full w-full bg-background" />;
+  if (!isMounted) return <div className="h-[100dvh] w-full bg-background" />;
 
   return (
-    <div className="h-full w-full flex bg-background text-foreground font-sans selection:bg-indigo-500/30 overflow-hidden relative" suppressHydrationWarning>
+    <div className="h-[100dvh] w-full flex bg-background text-foreground font-sans selection:bg-indigo-500/30 overflow-hidden relative" suppressHydrationWarning>
       
       {/* Background Ambient Lighting */}
       <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/10 rounded-full blur-[150px] pointer-events-none mix-blend-screen"></div>
