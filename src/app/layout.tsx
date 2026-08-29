@@ -28,7 +28,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full w-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full w-full overflow-hidden antialiased`}
       suppressHydrationWarning
     >
       <head>
@@ -59,7 +59,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="h-full w-full m-0 p-0 overflow-hidden bg-background text-foreground transition-colors duration-300" suppressHydrationWarning>
+      <body className="fixed inset-0 w-full h-full m-0 p-0 overflow-hidden bg-background text-foreground transition-colors duration-300" suppressHydrationWarning>
         {children}
       </body>
     </html>

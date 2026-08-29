@@ -143,7 +143,7 @@ function MainChatApp() {
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatScrollContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize theme
@@ -268,9 +268,14 @@ function MainChatApp() {
     setConversationId(newId);
   }, [loadHistoryFromStorage]);
 
-  // Auto scroll to bottom
+  // Auto scroll messages to bottom inside chat container only (prevents window scrolling)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messages.length > 0 && chatScrollContainerRef.current) {
+      chatScrollContainerRef.current.scrollTo({
+        top: chatScrollContainerRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
   }, [messages, status]);
 
   // Auto resize textarea
@@ -381,7 +386,7 @@ function MainChatApp() {
   };
 
   return (
-    <div className="flex h-[100dvh] w-full bg-background text-foreground overflow-hidden relative selection:bg-indigo-500/25">
+    <div className="flex h-full w-full bg-background text-foreground overflow-hidden relative selection:bg-indigo-500/25">
       {/* Background Ambient Glow Orbs */}
       <div className="absolute top-[-15%] left-[-10%] w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] rounded-full bg-indigo-600/10 dark:bg-indigo-600/15 blur-[140px] pointer-events-none -z-10 mix-blend-screen" />
       <div className="absolute bottom-[-15%] right-[-10%] w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] rounded-full bg-violet-600/10 dark:bg-violet-600/15 blur-[140px] pointer-events-none -z-10 mix-blend-screen" />
@@ -565,7 +570,10 @@ function MainChatApp() {
         </header>
 
         {/* Scrollable Messages Stream */}
-        <div className="flex-1 overflow-y-auto w-full custom-scrollbar px-4 sm:px-6 md:px-8 pb-32 pt-4">
+        <div
+          ref={chatScrollContainerRef}
+          className="flex-1 overflow-y-auto w-full custom-scrollbar px-4 sm:px-6 md:px-8 pb-32 pt-4"
+        >
           <div className="max-w-3xl mx-auto space-y-6">
             {messages.length === 0 ? (
               /* Hero Empty State */
@@ -788,7 +796,7 @@ function MainChatApp() {
               </div>
             )}
 
-            <div ref={messagesEndRef} className="h-4" />
+            <div className="h-2" />
           </div>
         </div>
 
