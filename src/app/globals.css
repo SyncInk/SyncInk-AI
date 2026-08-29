@@ -2,13 +2,27 @@
 @plugin "@tailwindcss/typography";
 
 :root {
-  --background: #020204;
-  --foreground: #ededed;
+  --background: #f4f5f7;
+  --foreground: #111111;
+  --surface: #ffffff;
+  --surface-hover: rgba(0,0,0,0.03);
+  --border: rgba(0,0,0,0.08);
+  --muted: rgba(0,0,0,0.5);
+  --glass: rgba(255,255,255,0.7);
+  --glass-hover: rgba(255,255,255,0.9);
+  --glass-border: rgba(0,0,0,0.05);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-glass: var(--glass);
+  --color-glass-hover: var(--glass-hover);
+  --color-glass-border: var(--glass-border);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -16,7 +30,14 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #020204;
-    --foreground: #ededed;
+    --foreground: #ffffff;
+    --surface: rgba(255,255,255,0.02);
+    --surface-hover: rgba(255,255,255,0.05);
+    --border: rgba(255,255,255,0.05);
+    --muted: rgba(255,255,255,0.5);
+    --glass: rgba(255,255,255,0.04);
+    --glass-hover: rgba(255,255,255,0.06);
+    --glass-border: rgba(255,255,255,0.1);
   }
 }
 
