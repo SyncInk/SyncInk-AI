@@ -300,6 +300,10 @@ function MainChatApp() {
 
       const savedInstructions = localStorage.getItem('syncink_custom_instructions') || '';
       setCustomInstructions(savedInstructions);
+
+      const handleOpenAuth = () => setIsAuthModalOpen(true);
+      window.addEventListener('syncink:open-auth-modal', handleOpenAuth);
+      return () => window.removeEventListener('syncink:open-auth-modal', handleOpenAuth);
     } catch (e) {
       console.error(e);
     }
@@ -629,6 +633,7 @@ function MainChatApp() {
 
     setUser(newProfile);
     localStorage.setItem('syncink_user', JSON.stringify(newProfile));
+    window.dispatchEvent(new Event('storage'));
     setIsAuthModalOpen(false);
     setAuthError('');
   };
@@ -653,6 +658,7 @@ function MainChatApp() {
 
     setUser(newProfile);
     localStorage.setItem('syncink_user', JSON.stringify(newProfile));
+    window.dispatchEvent(new Event('storage'));
     setIsAuthModalOpen(false);
     setAuthError('');
     setAuthPassword('');
@@ -661,6 +667,7 @@ function MainChatApp() {
   const handleSignOut = () => {
     setUser(null);
     localStorage.removeItem('syncink_user');
+    window.dispatchEvent(new Event('storage'));
     setIsSettingsOpen(false);
   };
 
