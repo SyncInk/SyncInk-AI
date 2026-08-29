@@ -77,15 +77,57 @@ function ChatApp() {
     setInput((prev) => prev ? `${prev} ${text}` : text);
   });
 
-  const fetchHistory = useCallback(async () => {
+  const fetchHistory = useCallback(() => {
     try {
-      const res = await fetch('/api/conversations');
-      const data = await res.json();
-      if (Array.isArray(data)) setHistory(data);
+      const stored = localStorage.getItem('syncink_history');
+      if (stored) {
+        setHistory(JSON.parse(stored).sort((a:any, b:any) => b.updatedAt - a.updatedAt));
+      }
     } catch (e) {
       console.error(e);
     }
   }, []);
+
+  // Save messages to local storage whenever they change
+  useEffect(() => {
+    if (messages.length > 0 && conversationId) {
+      try {
+        const stored = localStorage.getItem('syncink_history');
+        let hist = stored ? JSON.parse(stored) : [];
+        let convIndex = hist.findIndex((c:any) => c.id === conversationId);
+        
+        let title = "New Conversation";
+        if (convIndex >= 0 && hist[convIndex].title && hist[convIndex].title !== "New Conversation") {
+          title = hist[convIndex].title;
+        } else if ((messages[0] as any)?.content) {
+          const content = (messages[0] as any).content;
+          title = content.substring(0, 40) + (content.length > 40 ? '...' : '');
+        } else if (messages[0]?.parts) {
+          const textPart = messages[0].parts.find((p:any) => p.type === 'text');
+          const text = (textPart as any)?.text || 'Chat';
+          title = text.substring(0, 40) + (text.length > 40 ? '...' : '');
+        }
+
+        const convObj = {
+          id: conversationId,
+          title,
+          updatedAt: Date.now(),
+          messages: messages
+        };
+
+        if (convIndex >= 0) {
+          hist[convIndex] = convObj;
+        } else {
+          hist.unshift(convObj);
+        }
+        
+        localStorage.setItem('syncink_history', JSON.stringify(hist));
+        setHistory(hist.sort((a:any, b:any) => b.updatedAt - a.updatedAt));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [messages, conversationId]);
 
   // Initialize
   useEffect(() => {
@@ -99,14 +141,18 @@ function ChatApp() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, status]);
 
-  const loadConversation = async (id: string) => {
+  const loadConversation = (id: string) => {
     try {
       setConversationId(id);
-      setMessages([]);
-      const res = await fetch(`/api/conversations/${id}`);
-      if (res.ok) {
-        const data = await res.json();
-        setMessages(data.messages || []);
+      const stored = localStorage.getItem('syncink_history');
+      if (stored) {
+        const hist = JSON.parse(stored);
+        const conv = hist.find((c:any) => c.id === id);
+        if (conv) {
+          setMessages(conv.messages || []);
+        } else {
+          setMessages([]);
+        }
       }
       if (window.innerWidth < 768) setIsSidebarOpen(false);
     } catch (e) {
@@ -122,13 +168,18 @@ function ChatApp() {
     if (window.innerWidth < 768) setIsSidebarOpen(false);
   };
 
-  const deleteConversation = async (e: React.MouseEvent, id: string) => {
+  const deleteConversation = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (!confirm('Are you sure you want to delete this conversation?')) return;
     try {
-      await fetch(`/api/conversations/${id}`, { method: 'DELETE' });
+      const stored = localStorage.getItem('syncink_history');
+      if (stored) {
+        let hist = JSON.parse(stored);
+        hist = hist.filter((c:any) => c.id !== id);
+        localStorage.setItem('syncink_history', JSON.stringify(hist));
+        setHistory(hist);
+      }
       if (conversationId === id) startNewChat();
-      fetchHistory();
     } catch (e) {
       console.error(e);
     }
@@ -182,10 +233,10 @@ function ChatApp() {
     }
   };
 
-  if (!isMounted) return <div className="flex-1 h-full w-full bg-[#05050A]" />;
+  if (!isMounted) return <div className="h-[100dvh] w-full bg-[#05050A]" />;
 
   return (
-    <div className="flex flex-1 h-full w-full bg-[#020204] text-gray-100 font-sans selection:bg-indigo-500/30 overflow-hidden relative" suppressHydrationWarning>
+    <div className="flex h-[100dvh] w-full bg-[#020204] text-gray-100 font-sans selection:bg-indigo-500/30 overflow-hidden relative" suppressHydrationWarning>
       
       {/* Background Ambient Lighting */}
       <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/10 rounded-full blur-[150px] pointer-events-none mix-blend-screen"></div>
