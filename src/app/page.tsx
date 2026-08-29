@@ -50,6 +50,7 @@ import {
   User,
   ArrowRight,
 } from 'lucide-react';
+import { SidebarUserTile, TopBarAuthButton } from '@/components/AuthSection';
 
 // Speech-to-Text hook
 function useSpeechToText(onTranscript: (text: string) => void) {
@@ -844,37 +845,8 @@ function MainChatApp() {
             </button>
           </div>
 
-          {/* User Account Tile / Sign In CTA */}
-          {user ? (
-            <div
-              onClick={() => setIsSettingsOpen(true)}
-              className="flex items-center space-x-3 p-2 rounded-xl hover:bg-surface-hover cursor-pointer transition-colors border border-transparent hover:border-border"
-            >
-              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center text-[11px] font-bold text-white shadow-sm flex-shrink-0">
-                {user.name.slice(0, 2).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-foreground truncate">{user.name}</p>
-                <p className="text-[10px] text-muted truncate">{user.plan} · Active</p>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setIsAuthModalOpen(true)}
-              className="w-full flex items-center justify-between p-2.5 rounded-xl bg-gradient-to-r from-indigo-500/10 to-violet-500/10 hover:from-indigo-500/20 hover:to-violet-500/20 border border-indigo-500/20 text-foreground cursor-pointer transition-all shadow-sm"
-            >
-              <div className="flex items-center space-x-2">
-                <div className="p-1 rounded-lg bg-indigo-500 text-white">
-                  <LogIn className="w-3.5 h-3.5" />
-                </div>
-                <div className="text-left">
-                  <p className="text-xs font-semibold">Sign In / Register</p>
-                  <p className="text-[10px] text-muted">Unlock Pro Features</p>
-                </div>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-muted" />
-            </button>
-          )}
+          {/* User Account Tile / Real Clerk Auth */}
+          <SidebarUserTile onOpenSettings={() => setIsSettingsOpen(true)} />
         </div>
       </aside>
 
@@ -928,16 +900,8 @@ function MainChatApp() {
               })}
             </div>
 
-            {/* Sign In button in header if logged out */}
-            {!user && (
-              <button
-                onClick={() => setIsAuthModalOpen(true)}
-                className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shadow-sm cursor-pointer"
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                <span>Sign In</span>
-              </button>
-            )}
+            {/* Real Clerk Auth Button */}
+            <TopBarAuthButton />
 
             {/* Export Chat Button */}
             {messages.length > 0 && (
