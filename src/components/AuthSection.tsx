@@ -172,31 +172,27 @@ export function TopBarAuthButton() {
     </button>
   );
 
-  if (isClerkAvailable) {
-    return (
-      <ClerkErrorBoundary fallback={fallbackButton}>
-        <SignedIn>
-          <div className="flex items-center space-x-2">
-            <UserButton 
-              appearance={{
-                elements: {
-                  avatarBox: 'w-7 h-7 rounded-lg shadow-sm',
-                }
-              }}
-            />
-          </div>
-        </SignedIn>
-        <SignedOut>
-          <SignInButton mode="modal">
-            <button className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shadow-sm cursor-pointer">
-              <LogIn className="w-3.5 h-3.5" />
-              <span>Sign In</span>
-            </button>
-          </SignInButton>
-        </SignedOut>
-      </ClerkErrorBoundary>
-    );
-  }
-
-  return fallbackButton;
+  return (
+    <ClerkErrorBoundary fallback={fallbackButton}>
+      <SignedIn>
+        <div className="flex items-center space-x-2">
+          <UserButton 
+            appearance={{
+              elements: {
+                avatarBox: 'w-7 h-7 rounded-lg shadow-sm',
+              }
+            }}
+          />
+        </div>
+      </SignedIn>
+      <SignedOut>
+        <SignInButton mode="modal">
+          <button className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shadow-sm cursor-pointer hover:scale-105 active:scale-95">
+            <LogIn className="w-3.5 h-3.5" />
+            <span>Sign In</span>
+          </button>
+        </SignInButton>
+      </SignedOut>
+    </ClerkErrorBoundary>
+  );
 }
