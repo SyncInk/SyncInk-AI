@@ -22,19 +22,27 @@ import {
   Settings,
   X,
   Menu,
+  ChevronDown,
   ChevronRight,
   Code2,
   FileText,
   Lightbulb,
   Zap,
-  Bot,
-  User,
+  Globe,
+  Brain,
+  Volume2,
+  VolumeX,
+  Download,
+  Pin,
+  PinOff,
+  Edit2,
+  CheckCheck,
   ShieldCheck,
   AlertCircle,
   ExternalLink,
 } from 'lucide-react';
 
-// Speech recognition wrapper
+// Speech-to-Text hook
 function useSpeechToText(onTranscript: (text: string) => void) {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
@@ -80,7 +88,50 @@ function useSpeechToText(onTranscript: (text: string) => void) {
   return { isListening, toggle };
 }
 
-// Code Block with Copy Button
+// Text-to-Speech hook
+function useTextToSpeech() {
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
+
+  const speak = (id: string, rawText: string) => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+
+    if (speakingId === id) {
+      window.speechSynthesis.cancel();
+      setSpeakingId(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    // Strip markdown and thoughts for clean audio
+    const cleanText = rawText
+      .replace(/<thought>[\s\S]*?<\/thought>/g, '')
+      .replace(/```[\s\S]*?```/g, 'code snippet')
+      .replace(/[*_#`~\[\]]/g, '')
+      .trim();
+
+    if (!cleanText) return;
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.rate = 1.05;
+    utterance.onend = () => setSpeakingId(null);
+    utterance.onerror = () => setSpeakingId(null);
+
+    setSpeakingId(id);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const stop = () => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      setSpeakingId(null);
+    }
+  };
+
+  return { speakingId, speak, stop };
+}
+
+// Code Block with Copy Action
 function CodeBlock({ children, className }: { children: React.ReactNode; className?: string }) {
   const [copied, setCopied] = useState(false);
   const language = className ? className.replace(/language-/, '') : 'code';
@@ -95,12 +146,12 @@ function CodeBlock({ children, className }: { children: React.ReactNode; classNa
   return (
     <div className="relative my-4 rounded-xl overflow-hidden border border-border bg-[#0a0c14] text-gray-100 shadow-xl">
       <div className="flex items-center justify-between px-4 py-2 bg-white/[0.04] border-b border-border text-xs text-muted">
-        <span className="font-mono uppercase tracking-wider text-[11px] text-indigo-400">
+        <span className="font-mono uppercase tracking-wider text-[11px] text-indigo-400 font-semibold">
           {language}
         </span>
         <button
           onClick={copyToClipboard}
-          className="flex items-center space-x-1 hover:text-white transition-colors px-2 py-1 rounded hover:bg-white/10"
+          className="flex items-center space-x-1 hover:text-white transition-colors px-2 py-1 rounded hover:bg-white/10 cursor-pointer"
           title="Copy code"
         >
           {copied ? (
@@ -125,12 +176,50 @@ function CodeBlock({ children, className }: { children: React.ReactNode; classNa
   );
 }
 
+// Deep Reasoning Thinking Accordion
+function ThoughtAccordion({ thought }: { thought: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="mb-3 rounded-xl border border-indigo-500/20 bg-indigo-500/[0.04] dark:bg-indigo-500/[0.06] overflow-hidden text-xs backdrop-blur-md">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-3.5 py-2 text-indigo-400 dark:text-indigo-300 font-medium hover:bg-indigo-500/[0.05] transition-colors cursor-pointer"
+      >
+        <span className="flex items-center space-x-2">
+          <Brain className="w-3.5 h-3.5 animate-pulse text-indigo-400" />
+          <span className="font-semibold tracking-wide">Deep Reasoning Process</span>
+        </span>
+        <div className="flex items-center space-x-1.5 text-[11px] text-muted">
+          <span>{isOpen ? 'Hide' : 'Show'}</span>
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        </div>
+      </button>
+      {isOpen && (
+        <div className="px-3.5 py-2.5 text-muted leading-relaxed font-mono text-[11px] whitespace-pre-wrap border-t border-indigo-500/15 bg-black/10 dark:bg-black/20">
+          {thought}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface ConversationItem {
   id: string;
   title: string;
   updatedAt: number;
   messages: any[];
+  isPinned?: boolean;
 }
+
+type IntelligenceMode = 'fast' | 'deep' | 'web' | 'creative';
+
+const MODES: { id: IntelligenceMode; label: string; icon: any; desc: string }[] = [
+  { id: 'fast', label: 'SyncInk Fast', icon: Zap, desc: 'Ultra-fast sub-second responses' },
+  { id: 'web', label: 'Web Search', icon: Globe, desc: 'Live Google search grounding & citations' },
+  { id: 'deep', label: 'Deep Reason', icon: Brain, desc: 'Step-by-step logic & problem-solving' },
+  { id: 'creative', label: 'Creative Studio', icon: Sparkles, desc: 'Rich prose, copy & brainstorming' },
+];
 
 function MainChatApp() {
   const [conversationId, setConversationId] = useState<string>('');
@@ -138,15 +227,30 @@ function MainChatApp() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [activeMode, setActiveMode] = useState<IntelligenceMode>('fast');
+  const [isWebSearchActive, setIsWebSearchActive] = useState(false);
+  const [customInstructions, setCustomInstructions] = useState('');
   const [inputPrompt, setInputPrompt] = useState('');
   const [attachments, setAttachments] = useState<Array<{ name: string; type: string; data: string }>>([]);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+
+  // Inline rename state
+  const [editingChatId, setEditingChatId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize theme
+  // Text to speech
+  const { speakingId, speak, stop: stopSpeech } = useTextToSpeech();
+
+  // Speech to text
+  const { isListening, toggle: toggleSpeech } = useSpeechToText((text) => {
+    setInputPrompt((prev) => (prev ? `${prev} ${text}` : text));
+  });
+
+  // Initialize theme and preferences
   useEffect(() => {
     try {
       const savedTheme = localStorage.getItem('syncink_theme') as 'dark' | 'light' | null;
@@ -160,6 +264,9 @@ function MainChatApp() {
         document.documentElement.classList.remove('dark');
         document.documentElement.setAttribute('data-theme', 'light');
       }
+
+      const savedInstructions = localStorage.getItem('syncink_custom_instructions') || '';
+      setCustomInstructions(savedInstructions);
     } catch (e) {
       console.error(e);
     }
@@ -179,22 +286,18 @@ function MainChatApp() {
   };
 
   // AI SDK useChat
+  const effectiveMode = isWebSearchActive ? 'web' : activeMode;
   const { messages, setMessages, sendMessage, status, error, stop, clearError } = useChat({
     id: conversationId,
     transport:
       typeof window !== 'undefined'
         ? new DefaultChatTransport({
-            api: `/api/chat?conversationId=${conversationId}`,
+            api: `/api/chat?conversationId=${conversationId}&mode=${effectiveMode}&webSearch=${isWebSearchActive}`,
           })
         : undefined,
   } as any);
 
   const isGenerating = status === 'submitted' || status === 'streaming';
-
-  // Speech to text
-  const { isListening, toggle: toggleSpeech } = useSpeechToText((text) => {
-    setInputPrompt((prev) => (prev ? `${prev} ${text}` : text));
-  });
 
   // Load history from localStorage
   const loadHistoryFromStorage = useCallback(() => {
@@ -203,7 +306,14 @@ function MainChatApp() {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          setHistory(parsed.sort((a, b) => b.updatedAt - a.updatedAt));
+          // Sort: pinned first, then by updatedAt desc
+          setHistory(
+            parsed.sort((a, b) => {
+              if (a.isPinned && !b.isPinned) return -1;
+              if (!a.isPinned && b.isPinned) return 1;
+              return b.updatedAt - a.updatedAt;
+            })
+          );
         }
       }
     } catch (e) {
@@ -240,11 +350,14 @@ function MainChatApp() {
           firstUserText.length > 38 ? firstUserText.substring(0, 38) + '...' : firstUserText;
 
         const idx = list.findIndex((c) => c.id === conversationId);
+        const existing = idx >= 0 ? list[idx] : null;
+
         const item: ConversationItem = {
           id: conversationId,
-          title: idx >= 0 && list[idx].title !== 'New Conversation' ? list[idx].title : title,
+          title: existing && existing.title !== 'New Conversation' ? existing.title : title,
           updatedAt: Date.now(),
           messages: messages,
+          isPinned: existing?.isPinned ?? false,
         };
 
         if (idx >= 0) {
@@ -254,7 +367,13 @@ function MainChatApp() {
         }
 
         localStorage.setItem('syncink_conversations', JSON.stringify(list));
-        setHistory([...list]);
+        setHistory(
+          list.sort((a, b) => {
+            if (a.isPinned && !b.isPinned) return -1;
+            if (!a.isPinned && b.isPinned) return 1;
+            return b.updatedAt - a.updatedAt;
+          })
+        );
       } catch (e) {
         console.error('Failed to save conversation:', e);
       }
@@ -268,7 +387,7 @@ function MainChatApp() {
     setConversationId(newId);
   }, [loadHistoryFromStorage]);
 
-  // Auto scroll messages to bottom inside chat container only (prevents window scrolling)
+  // Auto scroll messages to bottom inside container ONLY
   useEffect(() => {
     if (messages.length > 0 && chatScrollContainerRef.current) {
       chatScrollContainerRef.current.scrollTo({
@@ -287,6 +406,7 @@ function MainChatApp() {
   }, [inputPrompt]);
 
   const handleStartNewChat = () => {
+    stopSpeech();
     setConversationId(crypto.randomUUID());
     setMessages([]);
     setInputPrompt('');
@@ -296,6 +416,7 @@ function MainChatApp() {
   };
 
   const handleSelectConversation = (conv: ConversationItem) => {
+    stopSpeech();
     setConversationId(conv.id);
     setMessages(conv.messages || []);
     setInputPrompt('');
@@ -319,6 +440,42 @@ function MainChatApp() {
     }
   };
 
+  const togglePinConversation = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    try {
+      const updated = history.map((c) => (c.id === id ? { ...c, isPinned: !c.isPinned } : c));
+      localStorage.setItem('syncink_conversations', JSON.stringify(updated));
+      setHistory(
+        updated.sort((a, b) => {
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+          return b.updatedAt - a.updatedAt;
+        })
+      );
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const startRename = (e: React.MouseEvent, conv: ConversationItem) => {
+    e.stopPropagation();
+    setEditingChatId(conv.id);
+    setEditingTitle(conv.title);
+  };
+
+  const saveRename = (e: React.MouseEvent | React.KeyboardEvent, id: string) => {
+    e.stopPropagation();
+    if (!editingTitle.trim()) return;
+    try {
+      const updated = history.map((c) => (c.id === id ? { ...c, title: editingTitle.trim() } : c));
+      localStorage.setItem('syncink_conversations', JSON.stringify(updated));
+      setHistory(updated);
+      setEditingChatId(null);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleClearAllHistory = () => {
     if (!confirm('Delete all conversation history? This cannot be undone.')) return;
     try {
@@ -329,6 +486,42 @@ function MainChatApp() {
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const exportCurrentChat = () => {
+    if (messages.length === 0) {
+      alert('No messages to export.');
+      return;
+    }
+
+    const currentConv = history.find((c) => c.id === conversationId);
+    const title = currentConv?.title || 'SyncInk_AI_Chat';
+
+    let markdown = `# ${title}\n\n*Exported from SyncInk AI on ${new Date().toLocaleString()}*\n\n---\n\n`;
+
+    for (const rawM of messages) {
+      const m = rawM as any;
+      const isUser = m.role === 'user';
+      const sender = isUser ? '👤 User' : '⚡ SyncInk AI';
+      const text =
+        typeof m.content === 'string'
+          ? m.content
+          : Array.isArray(m.parts)
+          ? m.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n')
+          : '';
+
+      markdown += `### ${sender}\n\n${text}\n\n`;
+    }
+
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title.replace(/[^a-zA-Z0-9_-]/g, '_')}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   // Handle file uploads
@@ -358,6 +551,7 @@ function MainChatApp() {
     if ((!query && attachments.length === 0) || isGenerating) return;
 
     clearError?.();
+    stopSpeech();
 
     if (attachments.length > 0) {
       const parts: any[] = [];
@@ -380,7 +574,8 @@ function MainChatApp() {
   };
 
   const copyMessageContent = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
+    const clean = text.replace(/<thought>[\s\S]*?<\/thought>/g, '').trim();
+    navigator.clipboard.writeText(clean);
     setCopiedMessageId(id);
     setTimeout(() => setCopiedMessageId(null), 2000);
   };
@@ -425,7 +620,7 @@ function MainChatApp() {
           </div>
           <button
             onClick={() => setIsSidebarOpen(false)}
-            className="md:hidden p-1.5 text-muted hover:text-foreground rounded-lg hover:bg-surface-hover transition-colors"
+            className="md:hidden p-1.5 text-muted hover:text-foreground rounded-lg hover:bg-surface-hover transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -451,8 +646,9 @@ function MainChatApp() {
 
         {/* Recent Conversations List */}
         <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1 custom-scrollbar">
-          <div className="px-2 py-1 text-[11px] font-semibold text-muted uppercase tracking-wider">
-            Recent Conversations
+          <div className="px-2 py-1 text-[11px] font-semibold text-muted uppercase tracking-wider flex items-center justify-between">
+            <span>Conversations</span>
+            <span className="text-[10px] text-muted/60">{history.length}</span>
           </div>
 
           {history.length === 0 ? (
@@ -462,12 +658,14 @@ function MainChatApp() {
           ) : (
             history.map((item) => {
               const isSelected = item.id === conversationId;
+              const isEditing = editingChatId === item.id;
+
               return (
                 <div
                   key={item.id}
-                  onClick={() => handleSelectConversation(item)}
+                  onClick={() => !isEditing && handleSelectConversation(item)}
                   className={`
-                    group relative flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium cursor-pointer transition-all duration-150
+                    group relative flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all duration-150
                     ${
                       isSelected
                         ? 'bg-indigo-500/15 text-indigo-400 dark:text-indigo-300 font-semibold border border-indigo-500/20 shadow-sm'
@@ -475,14 +673,57 @@ function MainChatApp() {
                     }
                   `}
                 >
-                  <span className="truncate flex-1 pr-2">{item.title}</span>
-                  <button
-                    onClick={(e) => handleDeleteConversation(e, item.id)}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-muted hover:text-red-400 rounded transition-opacity"
-                    title="Delete Chat"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {isEditing ? (
+                    <div className="flex items-center space-x-1.5 w-full" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="text"
+                        value={editingTitle}
+                        onChange={(e) => setEditingTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') saveRename(e, item.id);
+                          if (e.key === 'Escape') setEditingChatId(null);
+                        }}
+                        autoFocus
+                        className="flex-1 bg-surface border border-indigo-500/50 rounded px-2 py-0.5 text-xs text-foreground focus:outline-none"
+                      />
+                      <button
+                        onClick={(e) => saveRename(e, item.id)}
+                        className="p-1 text-emerald-400 hover:text-emerald-300"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center space-x-1.5 truncate flex-1 pr-1">
+                        {item.isPinned && <Pin className="w-3 h-3 text-indigo-400 flex-shrink-0 rotate-45" />}
+                        <span className="truncate">{item.title}</span>
+                      </div>
+                      <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1 transition-opacity">
+                        <button
+                          onClick={(e) => togglePinConversation(e, item.id)}
+                          className="p-1 text-muted hover:text-indigo-400 rounded"
+                          title={item.isPinned ? 'Unpin' : 'Pin to top'}
+                        >
+                          {item.isPinned ? <PinOff className="w-3 h-3" /> : <Pin className="w-3 h-3" />}
+                        </button>
+                        <button
+                          onClick={(e) => startRename(e, item)}
+                          className="p-1 text-muted hover:text-foreground rounded"
+                          title="Rename"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={(e) => handleDeleteConversation(e, item.id)}
+                          className="p-1 text-muted hover:text-red-400 rounded"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               );
             })
@@ -529,8 +770,8 @@ function MainChatApp() {
               SI
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-foreground truncate">SyncInk User</p>
-              <p className="text-[10px] text-muted truncate">Free Tier · 24/7 Live</p>
+              <p className="text-xs font-semibold text-foreground truncate">SyncInk Pro</p>
+              <p className="text-[10px] text-muted truncate">Active Engine · 24/7</p>
             </div>
           </div>
         </div>
@@ -539,7 +780,7 @@ function MainChatApp() {
       {/* Main Chat View Area */}
       <main className="relative flex-1 flex flex-col h-full w-full min-w-0 bg-transparent overflow-hidden">
         {/* Top Floating App Bar */}
-        <header className="flex items-center justify-between px-4 py-3 border-b border-border/40 backdrop-blur-md bg-surface/30 z-20">
+        <header className="flex items-center justify-between px-4 py-2.5 border-b border-border/40 backdrop-blur-md bg-surface/30 z-20">
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setIsSidebarOpen(true)}
@@ -547,6 +788,7 @@ function MainChatApp() {
             >
               <Menu className="w-5 h-5" />
             </button>
+
             <div className="flex items-center space-x-2.5">
               <img src="/logo.png" alt="SyncInk Logo" className="w-5 h-5 rounded-md object-cover shadow-sm" />
               <span className="font-semibold text-sm text-foreground">SyncInk Intelligence</span>
@@ -558,6 +800,45 @@ function MainChatApp() {
           </div>
 
           <div className="flex items-center space-x-2">
+            {/* Mode Indicator & Selector */}
+            <div className="hidden sm:flex items-center p-0.5 rounded-xl bg-surface border border-border text-xs">
+              {MODES.map((m) => {
+                const Icon = m.icon;
+                const isActive = activeMode === m.id && !isWebSearchActive;
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => {
+                      setActiveMode(m.id);
+                      if (m.id === 'web') setIsWebSearchActive(true);
+                      else setIsWebSearchActive(false);
+                    }}
+                    className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-muted hover:text-foreground'
+                    }`}
+                    title={m.desc}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{m.label.replace('SyncInk ', '')}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Export Chat Button */}
+            {messages.length > 0 && (
+              <button
+                onClick={exportCurrentChat}
+                className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs font-medium text-muted hover:text-foreground hover:bg-surface-hover border border-border/50 transition-colors cursor-pointer"
+                title="Export chat as Markdown"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span className="hidden lg:inline">Export</span>
+              </button>
+            )}
+
             <button
               onClick={handleStartNewChat}
               className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-muted hover:text-foreground hover:bg-surface-hover border border-border/50 transition-colors cursor-pointer"
@@ -571,12 +852,12 @@ function MainChatApp() {
         {/* Scrollable Messages Stream */}
         <div
           ref={chatScrollContainerRef}
-          className="flex-1 overflow-y-auto w-full custom-scrollbar px-4 sm:px-6 md:px-8 pb-32 pt-4"
+          className="flex-1 overflow-y-auto w-full custom-scrollbar px-4 sm:px-6 md:px-8 pb-36 pt-4"
         >
           <div className="max-w-3xl mx-auto space-y-6">
             {messages.length === 0 ? (
               /* Hero Empty State */
-              <div className="flex flex-col items-center justify-center min-h-[60vh] text-center pt-8 animate-in fade-in duration-700">
+              <div className="flex flex-col items-center justify-center min-h-[55vh] text-center pt-6 animate-in fade-in duration-700">
                 {/* Glowing SyncInk Emblem */}
                 <div className="relative mb-6">
                   <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/40 to-violet-500/40 rounded-3xl blur-2xl animate-pulse-subtle -z-10" />
@@ -589,69 +870,79 @@ function MainChatApp() {
                   SyncInk AI
                 </h1>
                 <p className="text-sm sm:text-base text-muted font-normal max-w-md mb-8">
-                  Fast, elegant intelligence for writing, code, research, and deep thinking.
+                  Supercharged with Google Search Grounding, Deep Reasoning, and High-Speed Code Generation.
                 </p>
 
                 {/* Prompt Suggestion Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl text-left">
                   <button
-                    onClick={() => handleSendMessage('Explain how quantum computers work in simple terms.')}
+                    onClick={() => {
+                      setIsWebSearchActive(true);
+                      handleSendMessage('What are the latest 2026 gaming and tech releases announced recently?');
+                    }}
+                    className="p-4 rounded-2xl bg-surface/60 dark:bg-white/[0.02] hover:bg-surface dark:hover:bg-white/[0.06] border border-border hover:border-cyan-500/30 transition-all duration-200 shadow-sm hover:shadow-md group text-left cursor-pointer"
+                  >
+                    <div className="flex items-center space-x-2 text-cyan-400 mb-1.5">
+                      <Globe className="w-4 h-4" />
+                      <span className="text-xs font-semibold text-foreground">Live Web Search</span>
+                    </div>
+                    <p className="text-xs text-muted leading-relaxed">
+                      Latest 2026 tech and game releases with Google Grounding
+                    </p>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveMode('deep');
+                      handleSendMessage('Analyze how to design a fault-tolerant microservices distributed system step by step.');
+                    }}
                     className="p-4 rounded-2xl bg-surface/60 dark:bg-white/[0.02] hover:bg-surface dark:hover:bg-white/[0.06] border border-border hover:border-indigo-500/30 transition-all duration-200 shadow-sm hover:shadow-md group text-left cursor-pointer"
                   >
                     <div className="flex items-center space-x-2 text-indigo-400 mb-1.5">
-                      <Lightbulb className="w-4 h-4" />
-                      <span className="text-xs font-semibold text-foreground">Explain simply</span>
+                      <Brain className="w-4 h-4" />
+                      <span className="text-xs font-semibold text-foreground">Deep Reasoning</span>
                     </div>
                     <p className="text-xs text-muted leading-relaxed">
-                      How quantum computers work in simple terms
+                      Step-by-step logic breakdown for complex architectures
                     </p>
                   </button>
 
                   <button
-                    onClick={() => handleSendMessage('Draft a high-impact product announcement email.')}
-                    className="p-4 rounded-2xl bg-surface/60 dark:bg-white/[0.02] hover:bg-surface dark:hover:bg-white/[0.06] border border-border hover:border-indigo-500/30 transition-all duration-200 shadow-sm hover:shadow-md group text-left cursor-pointer"
+                    onClick={() => handleSendMessage('Write a high-performance React component for a glassy search modal.')}
+                    className="p-4 rounded-2xl bg-surface/60 dark:bg-white/[0.02] hover:bg-surface dark:hover:bg-white/[0.06] border border-border hover:border-violet-500/30 transition-all duration-200 shadow-sm hover:shadow-md group text-left cursor-pointer"
                   >
                     <div className="flex items-center space-x-2 text-violet-400 mb-1.5">
-                      <FileText className="w-4 h-4" />
-                      <span className="text-xs font-semibold text-foreground">Draft an email</span>
-                    </div>
-                    <p className="text-xs text-muted leading-relaxed">
-                      High-impact product launch announcement
-                    </p>
-                  </button>
-
-                  <button
-                    onClick={() => handleSendMessage('Write a clean Next.js React component for an animated navbar.')}
-                    className="p-4 rounded-2xl bg-surface/60 dark:bg-white/[0.02] hover:bg-surface dark:hover:bg-white/[0.06] border border-border hover:border-indigo-500/30 transition-all duration-200 shadow-sm hover:shadow-md group text-left cursor-pointer"
-                  >
-                    <div className="flex items-center space-x-2 text-cyan-400 mb-1.5">
                       <Code2 className="w-4 h-4" />
-                      <span className="text-xs font-semibold text-foreground">Write clean code</span>
+                      <span className="text-xs font-semibold text-foreground">Write Clean Code</span>
                     </div>
                     <p className="text-xs text-muted leading-relaxed">
-                      Next.js component for an animated navbar
+                      High-performance React glassy component with copy support
                     </p>
                   </button>
 
                   <button
-                    onClick={() => handleSendMessage('Brainstorm 5 innovative startup ideas for 2026.')}
-                    className="p-4 rounded-2xl bg-surface/60 dark:bg-white/[0.02] hover:bg-surface dark:hover:bg-white/[0.06] border border-border hover:border-indigo-500/30 transition-all duration-200 shadow-sm hover:shadow-md group text-left cursor-pointer"
+                    onClick={() => {
+                      setActiveMode('creative');
+                      handleSendMessage('Write a compelling, cinematic story opening about an AI finding its creator.');
+                    }}
+                    className="p-4 rounded-2xl bg-surface/60 dark:bg-white/[0.02] hover:bg-surface dark:hover:bg-white/[0.06] border border-border hover:border-emerald-500/30 transition-all duration-200 shadow-sm hover:shadow-md group text-left cursor-pointer"
                   >
                     <div className="flex items-center space-x-2 text-emerald-400 mb-1.5">
-                      <Zap className="w-4 h-4" />
-                      <span className="text-xs font-semibold text-foreground">Brainstorm ideas</span>
+                      <Sparkles className="w-4 h-4" />
+                      <span className="text-xs font-semibold text-foreground">Creative Studio</span>
                     </div>
                     <p className="text-xs text-muted leading-relaxed">
-                      5 innovative startup ideas in tech for 2026
+                      Cinematic storytelling with rich vocabulary and tone
                     </p>
                   </button>
                 </div>
               </div>
             ) : (
               /* Message Thread */
-              messages.map((m: any) => {
+              messages.map((rawM: any) => {
+                const m = rawM as any;
                 const isUser = m.role === 'user';
-                const messageText =
+                const rawContent =
                   typeof m.content === 'string'
                     ? m.content
                     : Array.isArray(m.parts)
@@ -660,6 +951,11 @@ function MainChatApp() {
                         .map((p: any) => p.text)
                         .join('\n')
                     : '';
+
+                // Extract <thought>...</thought> if present
+                const thoughtMatch = rawContent.match(/<thought>([\s\S]*?)<\/thought>/);
+                const thoughtText = thoughtMatch ? thoughtMatch[1].trim() : null;
+                const messageText = rawContent.replace(/<thought>[\s\S]*?<\/thought>/, '').trim();
 
                 const imageParts = Array.isArray(m.parts)
                   ? m.parts.filter((p: any) => p.type === 'image')
@@ -673,7 +969,7 @@ function MainChatApp() {
                     }`}
                   >
                     <div
-                      className={`flex space-x-3 max-w-[88%] sm:max-w-[82%] ${
+                      className={`flex space-x-3 max-w-[88%] sm:max-w-[84%] ${
                         isUser ? 'flex-row-reverse space-x-reverse' : 'flex-row'
                       }`}
                     >
@@ -699,6 +995,9 @@ function MainChatApp() {
                             ))}
                           </div>
                         )}
+
+                        {/* Deep Reasoning Thought Accordion (if present) */}
+                        {!isUser && thoughtText && <ThoughtAccordion thought={thoughtText} />}
 
                         {/* Content Box */}
                         <div
@@ -756,6 +1055,28 @@ function MainChatApp() {
                                 </>
                               )}
                             </button>
+
+                            <button
+                              onClick={() => speak(m.id, messageText)}
+                              className={`flex items-center space-x-1 text-[11px] p-1 rounded transition-colors cursor-pointer ${
+                                speakingId === m.id
+                                  ? 'text-indigo-400 font-semibold'
+                                  : 'hover:text-foreground'
+                              }`}
+                              title={speakingId === m.id ? 'Stop speaking' : 'Read aloud'}
+                            >
+                              {speakingId === m.id ? (
+                                <>
+                                  <VolumeX className="w-3 h-3 text-red-400" />
+                                  <span className="text-red-400">Stop</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Volume2 className="w-3 h-3" />
+                                  <span>Listen</span>
+                                </>
+                              )}
+                            </button>
                           </div>
                         )}
                       </div>
@@ -771,9 +1092,15 @@ function MainChatApp() {
                 <div className="w-7 h-7 rounded-xl overflow-hidden shadow-sm flex-shrink-0 border border-border/60 animate-pulse">
                   <img src="/logo.png" alt="SyncInk AI" className="w-full h-full object-cover" />
                 </div>
-                <div className="flex items-center space-x-1.5 py-2 px-3 rounded-full bg-surface border border-border">
-                  <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-                  <span className="font-medium text-[12px]">SyncInk is thinking...</span>
+                <div className="flex items-center space-x-2 py-2 px-3.5 rounded-full bg-surface border border-border shadow-sm">
+                  <span className="w-2 h-2 rounded-full bg-indigo-500 animate-ping" />
+                  <span className="font-medium text-[12px]">
+                    {isWebSearchActive
+                      ? 'Searching Google live & generating...'
+                      : activeMode === 'deep'
+                      ? 'SyncInk is reasoning step-by-step...'
+                      : 'SyncInk is generating response...'}
+                  </span>
                 </div>
               </div>
             )}
@@ -814,7 +1141,7 @@ function MainChatApp() {
                     <span className="truncate max-w-[120px] font-medium">{file.name}</span>
                     <button
                       onClick={() => removeAttachment(idx)}
-                      className="p-0.5 hover:text-red-400 transition-colors"
+                      className="p-0.5 hover:text-red-400 transition-colors cursor-pointer"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -842,6 +1169,7 @@ function MainChatApp() {
 
               {/* Left Action Buttons */}
               <div className="flex items-center space-x-1 mb-1 ml-1">
+                {/* Attach Button */}
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -851,6 +1179,22 @@ function MainChatApp() {
                   <Paperclip className="w-4 h-4" />
                 </button>
 
+                {/* Web Search Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsWebSearchActive(!isWebSearchActive)}
+                  className={`p-2 rounded-xl transition-all cursor-pointer flex items-center space-x-1 ${
+                    isWebSearchActive
+                      ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 shadow-sm font-semibold'
+                      : 'text-muted hover:text-foreground hover:bg-surface-hover'
+                  }`}
+                  title={isWebSearchActive ? 'Live Web Search Active' : 'Enable Live Web Search'}
+                >
+                  <Globe className={`w-4 h-4 ${isWebSearchActive ? 'animate-pulse' : ''}`} />
+                  {isWebSearchActive && <span className="text-[10px] hidden sm:inline">Search</span>}
+                </button>
+
+                {/* Voice Input Button */}
                 <button
                   type="button"
                   onClick={toggleSpeech}
@@ -877,7 +1221,13 @@ function MainChatApp() {
                   }
                 }}
                 rows={1}
-                placeholder="Ask SyncInk anything... (Shift+Enter for newline)"
+                placeholder={
+                  isWebSearchActive
+                    ? 'Search the web live with SyncInk... (Shift+Enter for newline)'
+                    : activeMode === 'deep'
+                    ? 'Ask for deep reasoning & step-by-step logic...'
+                    : 'Ask SyncInk anything... (Shift+Enter for newline)'
+                }
                 className="flex-1 bg-transparent py-2.5 px-3 text-sm text-foreground placeholder:text-muted focus:outline-none resize-none min-h-[40px] max-h-[160px] leading-relaxed custom-scrollbar font-normal"
               />
 
@@ -906,9 +1256,14 @@ function MainChatApp() {
             </form>
 
             {/* Bottom Disclaimer */}
-            <p className="text-center text-[11px] text-muted/70 mt-2 font-medium tracking-wide">
-              SyncInk AI can make mistakes. Verify important information.
-            </p>
+            <div className="flex items-center justify-center space-x-3 text-[11px] text-muted/70 mt-2 font-medium tracking-wide">
+              <span>SyncInk AI can make mistakes. Verify important information.</span>
+              <span className="hidden sm:inline">·</span>
+              <span className="hidden sm:inline flex items-center space-x-1 text-emerald-400 font-semibold">
+                <ShieldCheck className="w-3 h-3 inline" />
+                <span>Gemini 3.6 Engine</span>
+              </span>
+            </div>
           </div>
         </div>
       </main>
@@ -930,7 +1285,7 @@ function MainChatApp() {
               </div>
               <div>
                 <h3 className="font-semibold text-foreground text-base">Account & Settings</h3>
-                <p className="text-xs text-muted">Manage your preferences and data</p>
+                <p className="text-xs text-muted">Manage your preferences, engine & data</p>
               </div>
             </div>
 
@@ -975,19 +1330,40 @@ function MainChatApp() {
                 </div>
               </div>
 
-              {/* Model Info */}
+              {/* Custom AI Persona / Instructions */}
               <div className="p-3.5 rounded-xl bg-surface-hover border border-border/60">
-                <div className="font-semibold text-foreground mb-1">Intelligence Engine</div>
-                <p className="text-muted leading-relaxed text-[11px]">
-                  SyncInk AI is powered by high-speed Gemini 3.6 Flash with real-time reasoning and zero-latency responses.
+                <div className="font-semibold text-foreground mb-1">Custom System Persona</div>
+                <p className="text-muted text-[11px] mb-2">
+                  Instruct SyncInk how to behave (e.g. &quot;Be extremely concise&quot;, &quot;Expert Python Engineer&quot;).
                 </p>
+                <textarea
+                  value={customInstructions}
+                  onChange={(e) => {
+                    setCustomInstructions(e.target.value);
+                    localStorage.setItem('syncink_custom_instructions', e.target.value);
+                  }}
+                  placeholder="Enter custom instructions..."
+                  rows={2}
+                  className="w-full bg-surface border border-border rounded-lg p-2 text-xs text-foreground placeholder:text-muted focus:outline-none focus:border-indigo-500/50 resize-none font-normal"
+                />
+              </div>
+
+              {/* Engine Specs */}
+              <div className="p-3.5 rounded-xl bg-surface-hover border border-border/60">
+                <div className="font-semibold text-foreground mb-1">Intelligence Features</div>
+                <ul className="text-muted space-y-1 text-[11px]">
+                  <li>• <strong>Google Search Grounding:</strong> Real-time internet access enabled</li>
+                  <li>• <strong>Deep Reasoning:</strong> Step-by-step logic breakdown</li>
+                  <li>• <strong>Audio Read Aloud:</strong> Native speech synthesis engine</li>
+                  <li>• <strong>Export:</strong> One-click Markdown export</li>
+                </ul>
               </div>
 
               {/* Data & History */}
               <div className="p-3.5 rounded-xl bg-surface-hover border border-border/60">
                 <div className="font-semibold text-foreground mb-1">Privacy & Data</div>
                 <p className="text-muted mb-3 text-[11px] leading-relaxed">
-                  Your chat conversations are securely stored directly in your browser. Nothing is shared with 3rd parties.
+                  Your chat conversations are stored only inside your browser. No personal logs are stored on the server.
                 </p>
                 <button
                   onClick={handleClearAllHistory}
@@ -999,11 +1375,11 @@ function MainChatApp() {
               </div>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-border flex items-center justify-between text-[11px] text-muted">
-              <span>SyncInk AI v2.5</span>
+            <div className="mt-5 pt-3 border-t border-border flex items-center justify-between text-[11px] text-muted">
+              <span>SyncInk AI Pro v3.0</span>
               <span className="text-emerald-400 flex items-center space-x-1">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Encrypted & Verified</span>
+                <span>Verified & Encrypted</span>
               </span>
             </div>
           </div>
