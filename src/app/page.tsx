@@ -348,12 +348,12 @@ function MainChatApp() {
   const effectiveMode = isWebSearchActive ? 'web' : activeMode;
   const { messages, setMessages, sendMessage, status, error, stop, clearError } = useChat({
     id: conversationId,
-    api: '/api/chat',
-    body: {
-      conversationId,
-      mode: effectiveMode,
-      webSearch: isWebSearchActive
-    }
+    transport:
+      typeof window !== 'undefined'
+        ? new DefaultChatTransport({
+            api: `/api/chat?conversationId=${conversationId}&mode=${effectiveMode}&webSearch=${isWebSearchActive}`,
+          })
+        : undefined,
   } as any);
 
   const isGenerating = status === 'submitted' || status === 'streaming';
