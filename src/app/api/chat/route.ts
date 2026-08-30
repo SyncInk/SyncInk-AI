@@ -41,6 +41,7 @@ export async function POST(req: Request) {
     const webSearch = url.searchParams.get('webSearch') === 'true' || body.webSearch === true;
     const mode = url.searchParams.get('mode') || body.mode || 'fast';
     const customPrompt = url.searchParams.get('customPrompt') || body.customPrompt || '';
+    const aiModel = url.searchParams.get('model') || body.model || 'syncink-3.0';
 
     // Parse and normalize messages for AI SDK
     const coreMessages = rawMessages.map((m: any) => {
@@ -124,7 +125,10 @@ Formatting Directives:
 
     let model;
     
-    if (openAIKeys.length > 0) {
+    // Pick the provider based on user selection
+    const useOpenAI = (aiModel === 'syncink-3.5o' && openAIKeys.length > 0) || (googleKeys.length === 0);
+    
+    if (useOpenAI && openAIKeys.length > 0) {
       const activeApiKey = openAIKeys[Math.floor(Math.random() * openAIKeys.length)];
       const activeOpenAIProvider = createOpenAI({ apiKey: activeApiKey });
       const modelName = mode === 'deep' ? 'gpt-4o' : 'gpt-4o-mini';
@@ -133,7 +137,7 @@ Formatting Directives:
       if (webSearch || mode === 'web') {
         systemPrompt += '\n\n[WARNING]: User requested Web Search, but you are currently running on OpenAI which does not have native search grounding in this app. Please inform the user that Web Search is currently only supported when using a Google Gemini API key.';
       }
-    } else {
+    } else if (googleKeys.length > 0) {
       const activeApiKey = googleKeys[Math.floor(Math.random() * googleKeys.length)];
       const activeGoogleProvider = createGoogleGenerativeAI({ apiKey: activeApiKey });
       
@@ -142,6 +146,8 @@ Formatting Directives:
         modelOptions.useSearchGrounding = true;
       }
       model = (activeGoogleProvider as any)('gemini-3.6-flash', modelOptions);
+    } else {
+      throw new Error('No API keys configured.');
     }
 
     const result = streamText({

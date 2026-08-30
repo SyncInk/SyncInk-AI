@@ -267,6 +267,7 @@ function MainChatApp() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [selectedModel, setSelectedModel] = useState<'syncink-3.0' | 'syncink-3.5o'>('syncink-3.0');
 
   // Auth Form State
   const [authTab, setAuthTab] = useState<'signin' | 'signup'>('signin');
@@ -351,7 +352,7 @@ function MainChatApp() {
     transport:
       typeof window !== 'undefined'
         ? new DefaultChatTransport({
-            api: `/api/chat?conversationId=${conversationId}&mode=${effectiveMode}&webSearch=${isWebSearchActive}`,
+            api: `/api/chat?conversationId=${conversationId}&mode=${effectiveMode}&webSearch=${isWebSearchActive}&model=${selectedModel}`,
           })
         : undefined,
   } as any);
@@ -907,6 +908,17 @@ function MainChatApp() {
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span>Online</span>
               </div>
+
+              <div className="h-4 w-[1px] bg-border/50 mx-1 hidden sm:block"></div>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value as any)}
+                className="hidden sm:block appearance-none bg-surface border border-border rounded-lg text-xs font-medium text-foreground px-2 py-1 outline-none focus:border-indigo-500/50 cursor-pointer shadow-sm hover:bg-surface-hover transition-colors"
+                title="Select Engine Model"
+              >
+                <option value="syncink-3.0">SyncInk 3.0 (Gemini)</option>
+                <option value="syncink-3.5o">SyncInk 3.5o (ChatGPT)</option>
+              </select>
             </div>
           </div>
 
