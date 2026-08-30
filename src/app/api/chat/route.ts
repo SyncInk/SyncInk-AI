@@ -1,28 +1,34 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createOpenAI } from '@ai-sdk/openai';
 import { streamText } from 'ai';
 
 export const maxDuration = 60;
 export const runtime = 'edge';
 
-const getApiKeys = (): string[] => {
+const getGoogleApiKeys = (): string[] => {
   const keysEnv = 
     process.env.GOOGLE_API_KEYS || 
     process.env.GOOGLE_GENERATIVE_AI_API_KEY || 
     process.env.GEMINI_API_KEY || 
     process.env.GOOGLE_API_KEY || 
     '';
-  
+  return keysEnv.split(',').map(k => k.trim()).filter(k => k.length > 0);
+};
+
+const getOpenAIApiKeys = (): string[] => {
+  const keysEnv = process.env.OPENAI_API_KEYS || process.env.OPENAI_API_KEY || '';
   return keysEnv.split(',').map(k => k.trim()).filter(k => k.length > 0);
 };
 
 export async function POST(req: Request) {
   try {
-    const apiKeys = getApiKeys();
+    const googleKeys = getGoogleApiKeys();
+    const openAIKeys = getOpenAIApiKeys();
     
-    if (apiKeys.length === 0) {
+    if (googleKeys.length === 0 && openAIKeys.length === 0) {
       return new Response(
         JSON.stringify({ 
-          error: 'Missing Google Generative AI API Key. Please add GOOGLE_GENERATIVE_AI_API_KEY or GEMINI_API_KEY in your Vercel Environment Variables.' 
+          error: 'Missing API Key. Please add GOOGLE_API_KEY or OPENAI_API_KEY in your Vercel Environment Variables.' 
         }), 
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
@@ -116,18 +122,30 @@ Formatting Directives:
 2. For code, always provide production-ready, clean, modern code.
 3. Be friendly, brilliant, and accurate.`;
 
-    const modelOptions: any = {};
-    if (webSearch || mode === 'web') {
-      modelOptions.useSearchGrounding = true;
+    let model;
+    
+    if (openAIKeys.length > 0) {
+      const activeApiKey = openAIKeys[Math.floor(Math.random() * openAIKeys.length)];
+      const activeOpenAIProvider = createOpenAI({ apiKey: activeApiKey });
+      const modelName = mode === 'deep' ? 'gpt-4o' : 'gpt-4o-mini';
+      model = activeOpenAIProvider(modelName);
+      
+      if (webSearch || mode === 'web') {
+        systemPrompt += '\n\n[WARNING]: User requested Web Search, but you are currently running on OpenAI which does not have native search grounding in this app. Please inform the user that Web Search is currently only supported when using a Google Gemini API key.';
+      }
+    } else {
+      const activeApiKey = googleKeys[Math.floor(Math.random() * googleKeys.length)];
+      const activeGoogleProvider = createGoogleGenerativeAI({ apiKey: activeApiKey });
+      
+      const modelOptions: any = {};
+      if (webSearch || mode === 'web') {
+        modelOptions.useSearchGrounding = true;
+      }
+      model = (activeGoogleProvider as any)('gemini-3.6-flash', modelOptions);
     }
 
-    const activeApiKey = apiKeys[Math.floor(Math.random() * apiKeys.length)];
-    const activeGoogleProvider = createGoogleGenerativeAI({
-      apiKey: activeApiKey,
-    });
-
     const result = streamText({
-      model: (activeGoogleProvider as any)('gemini-3.6-flash', modelOptions),
+      model,
       system: systemPrompt,
       messages: coreMessages,
     });
