@@ -111,7 +111,7 @@ Write with rich sensory details, high craft, sophisticated prose, and engaging, 
 Deliver fast, direct, concise, and highly actionable answers with zero fluff.`;
     }
 
-    const systemPrompt = `You are SyncInk AI, an ultra-fast, premium next-generation AI assistant built by SyncInk.
+    let systemPrompt = `You are SyncInk AI, an ultra-fast, premium next-generation AI assistant built by SyncInk.
 Current Real-Time Date and Time: ${currentTime}.
 ${modeInstructions}
 
