@@ -4,19 +4,22 @@ import { streamText } from 'ai';
 export const maxDuration = 60;
 export const runtime = 'edge';
 
-const apiKey = 
-  process.env.GOOGLE_GENERATIVE_AI_API_KEY || 
-  process.env.GEMINI_API_KEY || 
-  process.env.GOOGLE_API_KEY || 
-  '';
-
-const google = createGoogleGenerativeAI({
-  apiKey,
-});
+const getApiKeys = (): string[] => {
+  const keysEnv = 
+    process.env.GOOGLE_API_KEYS || 
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY || 
+    process.env.GEMINI_API_KEY || 
+    process.env.GOOGLE_API_KEY || 
+    '';
+  
+  return keysEnv.split(',').map(k => k.trim()).filter(k => k.length > 0);
+};
 
 export async function POST(req: Request) {
   try {
-    if (!apiKey) {
+    const apiKeys = getApiKeys();
+    
+    if (apiKeys.length === 0) {
       return new Response(
         JSON.stringify({ 
           error: 'Missing Google Generative AI API Key. Please add GOOGLE_GENERATIVE_AI_API_KEY or GEMINI_API_KEY in your Vercel Environment Variables.' 
@@ -118,8 +121,13 @@ Formatting Directives:
       modelOptions.useSearchGrounding = true;
     }
 
+    const activeApiKey = apiKeys[Math.floor(Math.random() * apiKeys.length)];
+    const activeGoogleProvider = createGoogleGenerativeAI({
+      apiKey: activeApiKey,
+    });
+
     const result = streamText({
-      model: (google as any)('gemini-3.6-flash', modelOptions),
+      model: (activeGoogleProvider as any)('gemini-3.6-flash', modelOptions),
       system: systemPrompt,
       messages: coreMessages,
     });
