@@ -126,8 +126,15 @@ Formatting Directives:
     return result.toUIMessageStreamResponse();
   } catch (error: any) {
     console.error('SyncInk AI Route Error:', error);
+    
+    let errorMessage = error.message || 'An error occurred while generating response.';
+    
+    if (errorMessage.includes('quota') || errorMessage.includes('rate limit') || errorMessage.includes('429')) {
+      errorMessage = 'SyncInk Engine Free Tier Rate Limit Exceeded. Please wait a minute before sending your next message, or upgrade your API key limit.';
+    }
+
     return new Response(
-      JSON.stringify({ error: error.message || 'An error occurred while generating response.' }), 
+      JSON.stringify({ error: errorMessage }), 
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
