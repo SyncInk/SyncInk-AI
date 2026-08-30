@@ -134,9 +134,9 @@ Formatting Directives:
       errorMessage = 'SyncInk Engine Free Tier Rate Limit Exceeded. Please wait a minute before sending your next message, or upgrade your API key limit.';
     }
 
-    return new Response(
-      JSON.stringify({ error: errorMessage }), 
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(errorMessage, { 
+      status: 500, 
+      headers: { 'Content-Type': 'text/plain' } 
+    });
   }
 }
